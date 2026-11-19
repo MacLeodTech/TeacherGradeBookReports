@@ -11,42 +11,46 @@ on:
       - main
   workflow_dispatch:
 
-env:
-  IMAGE_NAME: fiddler110/teachergradebookreports
-
 jobs:
   build-and-push:
-    name: Build and Push to Docker Hub
+    name: Build and Push to ghcr.io
     runs-on: ubuntu-latest
 
     permissions:
       contents: read
+      packages: write # push to ghcr.io/<owner>/teachergradebookreports
+
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/teachergradebookreports
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      # Registry references must be lowercase; an org such as MacLeodTech is not.
+      - name: Lowercase the image name
+        run: echo "IMAGE=${IMAGE,,}" >> "$GITHUB_ENV"
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
-      - name: Log in to Docker Hub
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069  # v4.4.1
+
+      - name: Log in to ghcr.io
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550  # v4.8.0
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract Docker metadata (tags and labels)
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302  # v6.2.0
         with:
-          images: ${{ env.IMAGE_NAME }}
+          images: ${{ env.IMAGE }}
           tags: |
             # Tag branch pushes with the branch name
             type=ref,event=branch
             # Tag PRs with pr-<number> (not pushed, only for local build check)
             type=ref,event=pr
-            # Tag semver releases (v1.2.3 → 1.2.3, 1.2, 1, latest)
+            # Tag semver releases (v1.2.3 → 1.2.3, 1.2, 1)
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
@@ -56,7 +60,7 @@ jobs:
             type=sha,prefix=sha-,format=short
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc  # v7.4.0
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
@@ -64,11 +68,3 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      # - name: Sync README to Docker Hub
-      #   if: github.event_name != 'pull_request'
-      #   uses: peter-evans/dockerhub-description@v4
-      #   with:
-      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
-      #     password: ${{ secrets.DOCKERHUB_TOKEN }}
-      #     repository: ${{ env.IMAGE_NAME }}
-      #     readme-filepath: ./README.md
