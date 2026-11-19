@@ -1,7 +1,8 @@
 name: Release local binaries
 
 # On a version tag, build `gradebook` for teachers' own computers and attach
-# the binaries to the GitHub release. The repo is public: GitHub-hosted runners.
+# the binaries to the GitHub release, once the tests pass. The repo is public:
+# GitHub-hosted runners.
 on:
   push:
     tags:
@@ -12,8 +13,12 @@ permissions:
   contents: read
 
 jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
   build:
     name: Build ${{ matrix.name }}
+    needs: test
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false

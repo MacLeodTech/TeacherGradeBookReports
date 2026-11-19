@@ -1,0 +1,47 @@
+name: Test
+
+# Format, lint and test on every OS the app ships for. Called by the image
+# and release workflows so nothing is published from code that fails.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    # The repo is public: GitHub-hosted runners only.
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Linux for the Docker image; Windows and macOS for `gradebook local`.
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Install Rust
+        shell: bash
+        run: rustup toolchain install stable --profile minimal --component clippy,rustfmt && rustup default stable
+
+      - name: Cache Rust build
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: cargo-test-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-test-${{ runner.os }}-
+
+      - name: Format
+        if: runner.os == 'Linux'
+        run: cargo fmt --check
+
+      - name: Lint
+        run: cargo clippy --locked --all-targets -- -D clippy::correctness -D clippy::suspicious
+
+      - name: Test
+        run: cargo test --locked
