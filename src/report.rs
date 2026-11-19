@@ -84,6 +84,9 @@ struct Model {
     title: String,
     date: String,
     primary: String,
+    /// Text on the main colour (black or white) and the main colour as readable text.
+    on_primary: String,
+    primary_text: String,
     accent: String,
     has_logo: bool,
     student: StudentM,
@@ -381,6 +384,7 @@ pub fn build_json(c: &Connection, input: &ReportInput) -> AppResult<String> {
     };
 
     let footer = if s.board_name.is_empty() { school.clone() } else { format!("{school} · {}", s.board_name) };
+    let brand = crate::color::brand(&s.primary_color);
     let model = Model {
         subtitle: format!("{title}  ·  {period}"),
         footer,
@@ -388,6 +392,8 @@ pub fn build_json(c: &Connection, input: &ReportInput) -> AppResult<String> {
         title,
         date: today_long(),
         primary: s.primary_color.clone(),
+        on_primary: brand.on_primary,
+        primary_text: brand.text,
         accent: s.accent_color.clone(),
         has_logo: s.has_logo,
         student: StudentM { name },
@@ -423,6 +429,8 @@ pub fn check_logo(bytes: &[u8]) -> Result<(), String> {
         title: "Logo check".into(),
         date: String::new(),
         primary: "#003F5A".into(),
+        on_primary: "#FFFFFF".into(),
+        primary_text: "#003F5A".into(),
         accent: "#B1D2E1".into(),
         has_logo: true,
         student: StudentM { name: "Test".into() },
@@ -535,6 +543,8 @@ mod tests {
             title: "Progress Report".into(),
             date: today_long(),
             primary: "#003F5A".into(),
+            on_primary: "#FFFFFF".into(),
+            primary_text: "#003F5A".into(),
             accent: "#B1D2E1".into(),
             has_logo: false,
             student: StudentM { name: student.full_name() },

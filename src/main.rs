@@ -3,6 +3,7 @@
 mod audit;
 mod auth;
 mod backup;
+mod color;
 mod config;
 mod db;
 mod engine;

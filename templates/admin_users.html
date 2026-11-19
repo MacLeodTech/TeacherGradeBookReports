@@ -9,7 +9,7 @@
     <tbody>
       {% for u in users %}
       <tr>
-        <td class="fw-semibold">{{ u.username }}{% if u.is_admin %} <span class="badge text-bg-dark">admin</span>{% endif %}{% if u.external %} <span class="badge text-bg-info">SSO</span>{% endif %}{% if u.open_workspace %} <span class="badge text-bg-{% if u.open_unsaved %}warning{% else %}secondary{% endif %}" title="Work open in memory">open{% if u.open_unsaved %}, unsaved{% endif %}</span>{% endif %}</td>
+        <td class="fw-semibold">{{ u.username }}{% if u.is_admin %} <span class="badge text-bg-primary">admin</span>{% endif %}{% if u.external %} <span class="badge text-bg-info">SSO</span>{% endif %}{% if u.open_workspace %} <span class="badge text-bg-{% if u.open_unsaved %}warning{% else %}secondary{% endif %}" title="Work open in memory">open{% if u.open_unsaved %}, unsaved{% endif %}</span>{% endif %}</td>
         <td>{{ u.full_name }}</td>
         <td class="small">{{ u.school }}</td>
         <td>{{ u.classes }}</td>

@@ -101,7 +101,7 @@
         ? `<span class="text-muted">—</span>`
         : `<span class="grade-pill" style="--c:${esc(r.color)}" title="${r.overridden ? "Teacher-set final grade" : "Calculated"}">${pct(r.overall)} · ${esc(r.label)}${r.overridden ? " ✎" : ""}</span>`;
       return `<tr data-s="${s.id}">
-        <th class="name"><a href="/classes/${data.class_id}/students/${s.id}">${esc(s.name)}</a>${r.missing ? ` <span class="badge text-bg-danger-subtle text-danger-emphasis" title="Missing work">${r.missing}</span>` : ""}</th>
+        <th class="name"><a href="/classes/${data.class_id}/students/${s.id}">${esc(s.name)}</a>${r.missing ? ` <span class="badge bg-danger-subtle text-danger-emphasis" title="Missing work">${r.missing}</span>` : ""}</th>
         <td class="overall">${overall}</td>${tds}${catTds}</tr>`;
     }).join("");
 

@@ -124,8 +124,11 @@ pub fn router(state: AppState) -> Router {
         .layer(middleware::from_fn_with_state(state.clone(), auth::session_middleware));
 
     let local = state.config.auth == crate::config::AuthMode::Local;
-    let router =
-        Router::new().route("/healthz", get(|| async { "ok" })).route("/static/{*path}", get(crate::static_files::serve)).merge(pages);
+    let router = Router::new()
+        .route("/healthz", get(|| async { "ok" }))
+        .route("/static/{*path}", get(crate::static_files::serve))
+        .route("/favicon.ico", get(crate::static_files::favicon))
+        .merge(pages);
     // Local mode: refuse requests whose Host isn't this computer (stops other
     // websites from reaching the app through DNS rebinding).
     let router = if local { router.layer(middleware::from_fn(crate::local::host_check)) } else { router };

@@ -22,18 +22,27 @@
     document.querySelectorAll("[data-theme-icon]").forEach((i) => { i.className = "bi " + ICONS[p]; });
   }
 
+  // The browser's own bar (mobile browsers, installed apps) takes the menu bar's colour,
+  // or the page background where there's no menu bar.
+  function tint() {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    const el = document.querySelector(".gb-nav") || document.body;
+    if (meta && el) meta.setAttribute("content", getComputedStyle(el).backgroundColor);
+  }
+
   function apply() {
     const p = pref();
     const theme = p === "auto" ? (dark.matches ? "dark" : "light") : p;
     document.documentElement.setAttribute("data-bs-theme", theme);
     mark(p);
+    tint();
   }
 
   apply();
   dark.addEventListener("change", () => { if (pref() === "auto") apply(); });
   // Other tabs follow a change made in this one.
   window.addEventListener("storage", (e) => { if (e.key === KEY) apply(); });
-  document.addEventListener("DOMContentLoaded", () => mark(pref()));
+  document.addEventListener("DOMContentLoaded", () => { mark(pref()); tint(); });
   document.addEventListener("click", (e) => {
     const b = e.target.closest("[data-theme-value]");
     if (!b) return;

@@ -16,7 +16,8 @@ A self-hosted gradebook for teachers that produces professional PDF progress rep
 - **Elementary, high school or university:** one class with many subjects; 1–3 periods plus a prep (for
   LTO and part-time teachers too); or any number of courses.
 - **A starter spreadsheet** to get going: download it from **Import**, fill in classes, students,
-  assessments and marks in Excel (a help sheet explains every mark code), and upload it. You see what it will
+  assessments and marks in Excel (a help sheet explains every mark code, and a worked example class with
+  comments on each mark shows them in use; it's never imported), and upload it. You see what it will
   create and any cells to fix before anything is saved. Upload it again later to update marks, or download it
   with your current classes filled in.
 - **Still imports spreadsheets.** Upload an Excel/CSV file, check how each column is read, and preview what
@@ -180,4 +181,5 @@ COOKIE_SECURE=false DB_PATH=./dev.db ADMIN_USERNAME=admin ADMIN_PASSWORD=Passwor
 | `migrations/` | SQL schema |
 | `docs/ROADMAP.md` | Design notes and status |
 
-Fonts: Source Sans 3, SIL Open Font License (`assets/fonts/OFL.txt`).
+Fonts: Source Sans 3, SIL Open Font License (`assets/fonts/OFL.txt`), used in the PDFs and, as a Latin subset in
+`static/vendor/fonts/`, on the site.

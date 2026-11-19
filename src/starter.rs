@@ -23,8 +23,8 @@ use std::{collections::HashMap, io::Cursor};
 use calamine::{Data, Range, Reader, Xlsx};
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use rust_xlsxwriter::{
-    Color, ConditionalFormatFormula, DataValidation, DataValidationRule, Format, FormatAlign, FormatBorder, Formula, Workbook, Worksheet,
-    utility::row_col_to_cell,
+    Color, ConditionalFormatFormula, DataValidation, DataValidationRule, Format, FormatAlign, FormatBorder, Formula, Note, Workbook,
+    Worksheet, utility::row_col_to_cell,
 };
 use serde::{Deserialize, Serialize};
 
@@ -228,6 +228,60 @@ fn example(mode: Mode) -> SheetSpec {
         period: None,
     }
 }
+
+/// What an entry on the example sheet means, as a cell comment.
+fn explain(v: &str, a: &AssessmentSpec) -> String {
+    let out_of = fmt_num(a.out_of);
+    let u = v.trim().to_uppercase();
+    match u.as_str() {
+        "" => "Blank: not assessed yet. Doesn't count.".into(),
+        "M" => "M = missing (not handed in). Shown as missing on the grid and the report. Whether it counts as 0 is your Settings choice."
+            .into(),
+        "X" => "X = excused or exempt. Never counts.".into(),
+        "?" => "? = handed in, marking in progress. Doesn't count until you replace it with the mark.".into(),
+        "Y" => "Y = done. Done / not done columns show on the report but never change the mark.".into(),
+        "N" => "N = not done. Shown as missing, but never changes the mark.".into(),
+        _ if u.ends_with('L') => format!("{} plus L = handed in late. Counts like any other mark.", &v[..v.len() - 1]),
+        _ if v.contains('/') => {
+            let mark = engine::parse_cell(v, a.out_of).ok().and_then(|c| match c {
+                CellInput::Set(m) => m.value,
+                CellInput::Clear => None,
+            });
+            format!("A fraction: {v} is converted to {} out of {out_of}.", mark.map(fmt_num).unwrap_or_default())
+        }
+        _ if v.ends_with('%') => format!("A percentage of the \"Out of\": {v} of {out_of}."),
+        _ if a.weight == 0.0 => format!("{v} out of {out_of}. This assessment's weight is 0 (practice), so it's shown but doesn't count."),
+        _ => format!("{v} points out of {out_of}."),
+    }
+}
+
+fn example_notes(ws: &mut Worksheet, s: &SheetSpec) -> AppResult<()> {
+    let note = |t: String| Note::new(t).set_author("Gradebook").set_width(260).set_height(80);
+    for (j, a) in s.assessments.iter().enumerate() {
+        let c = A_FIRST_COL + j as u16;
+        for (i, row) in s.marks.iter().enumerate() {
+            let v = row.get(j).map(String::as_str).unwrap_or("");
+            ws.insert_note(FIRST_STUDENT_ROW + i as u32, c, &note(explain(v, a))).map_err(err)?;
+        }
+        let about = if a.done {
+            Some("Type \"Done / not done\": for journals or homework checks. Use Y or N.")
+        } else if a.weight == 0.0 {
+            Some("Weight 0: practice or formative work. Marks are recorded but don't count.")
+        } else if a.weight > 1.0 {
+            Some("Weight 2: counts twice as much as a weight-1 assessment in the same category.")
+        } else {
+            None
+        };
+        if let Some(t) = about {
+            ws.insert_note(A_NAME_ROW + 3, c, &note(t.into())).map_err(err)?;
+        }
+    }
+    ws.insert_note(INFO_ROW, 1, &note("The class name. This one ends in \"(example)\", so this sheet is never imported.".into()))
+        .map_err(err)?;
+    Ok(())
+}
+
+const EXAMPLE_STUDENTS: [(&str, &str); 2] = [("John", "Smith"), ("Jane", "Doe")];
 
 pub fn is_example(class: &str) -> bool {
     class.trim().to_lowercase().ends_with("(example)")
@@ -732,6 +786,15 @@ fn class_sheet(ws: &mut Worksheet, st: &Styles, s: &SheetSpec, title: &str, link
         ws.add_conditional_format(FIRST_STUDENT_ROW, A_FIRST_COL, last_row, last_col, &cf).map_err(err)?;
     }
     ws.set_freeze_panes(FIRST_STUDENT_ROW, A_FIRST_COL).map_err(err)?;
+    // Printing: landscape, as wide as one page, headings repeated on every page.
+    ws.set_landscape().set_print_fit_to_pages(1, 0);
+    ws.set_repeat_rows(HEADER_ROW, HEADER_ROW).map_err(err)?;
+    if is_example(&s.class) {
+        ws.set_tab_color(Color::RGB(0x9AA5B1));
+        example_notes(ws, s)?;
+    } else {
+        ws.set_tab_color(Color::RGB(PRIMARY));
+    }
     Ok(())
 }
 
@@ -1020,6 +1083,18 @@ fn parse_sheet(name: &str, r: &Range<Data>, problems: &mut Vec<Problem>) -> Opti
             );
         }
         return None;
+    }
+    for (st, &row) in students.iter().zip(&student_rows) {
+        if EXAMPLE_STUDENTS.iter().any(|(f, l)| st.first.eq_ignore_ascii_case(f) && st.last.eq_ignore_ascii_case(l)) {
+            problems.push(Problem {
+                sheet: name.to_string(),
+                cell: row_col_to_cell(row, c_last.unwrap_or(1) as u16),
+                message: format!(
+                    "{} {} is one of the example students. Delete the row if they're not in your class (they'll be added otherwise).",
+                    st.first, st.last
+                ),
+            });
+        }
     }
     Some(SheetIn { sheet: name.to_string(), class, subject, course_code, period, categories, assessments, students })
 }
@@ -1347,5 +1422,40 @@ mod tests {
         // The bad mark and the unknown category are reported where they are.
         assert!(p.problems.iter().any(|x| x.cell == "E15" && x.message.contains("abc")), "{:?}", p.problems);
         assert!(p.problems.iter().any(|x| x.cell == "F9" && x.message.contains("Nope")), "{:?}", p.problems);
+    }
+
+    #[test]
+    fn example_sheet_explains_itself_and_is_never_imported() {
+        for mode in [Mode::Elementary, Mode::Secondary, Mode::University] {
+            let t = blank(&settings(mode));
+            let ex = &t.sheets[0];
+            assert!(is_example(&ex.class), "{mode:?}");
+            assert_eq!(ex.students.iter().map(|s| s.first.as_str()).collect::<Vec<_>>(), ["John", "Jane"]);
+            // Every example mark is valid, and has an explanation.
+            for (i, row) in ex.marks.iter().enumerate() {
+                for (j, v) in row.iter().enumerate() {
+                    let a = &ex.assessments[j];
+                    let kind = if a.done { Kind::Completion } else { Kind::Scored };
+                    assert!(engine::parse_input(kind, v, a.out_of).is_ok(), "{mode:?} {i},{j} {v}");
+                    assert!(!explain(v, a).is_empty());
+                }
+            }
+            let bytes = build(&t).unwrap();
+            // The notes are in the file (comments part).
+            let mut zip = zip::ZipArchive::new(Cursor::new(&bytes)).unwrap();
+            assert!((0..zip.len()).any(|i| zip.by_index(i).unwrap().name().unwrap().contains("comments")), "{mode:?}");
+            // Uploading the untouched template imports nothing, example included.
+            assert!(parse(&bytes).is_err(), "{mode:?}");
+        }
+        let q = AssessmentSpec { name: "Q".into(), category: String::new(), out_of: 20.0, weight: 1.0, done: false };
+        assert_eq!(explain("3/4", &q), "A fraction: 3/4 is converted to 15 out of 20.");
+        assert!(explain("41L", &q).starts_with("41 plus L"));
+
+        // Typed over the example but kept John Smith: imported, with a warning.
+        let mut t = blank(&settings(Mode::Secondary));
+        t.sheets[0].class = "Grade 9 Math".into();
+        let p = parse(&build(&t).unwrap()).unwrap();
+        assert_eq!(p.sheets.len(), 1);
+        assert_eq!(p.problems.iter().filter(|x| x.message.contains("example students")).count(), 2, "{:?}", p.problems);
     }
 }

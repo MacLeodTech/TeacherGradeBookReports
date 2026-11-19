@@ -18,11 +18,18 @@ static FILES: &[(&str, &str, &[u8])] = files! {
     "js/app.js" => "text/javascript; charset=utf-8",
     "js/grid.js" => "text/javascript; charset=utf-8",
     "js/theme.js" => "text/javascript; charset=utf-8",
+    "icons/favicon.svg" => "image/svg+xml",
+    "icons/favicon-32.png" => "image/png",
+    "icons/apple-touch-icon.png" => "image/png",
     "vendor/bootstrap.min.css" => "text/css; charset=utf-8",
     "vendor/bootstrap-icons.min.css" => "text/css; charset=utf-8",
     "vendor/bootstrap.bundle.min.js" => "text/javascript; charset=utf-8",
     "vendor/fonts/bootstrap-icons.woff" => "font/woff",
     "vendor/fonts/bootstrap-icons.woff2" => "font/woff2",
+    "vendor/fonts/source-sans-3-regular.woff2" => "font/woff2",
+    "vendor/fonts/source-sans-3-semibold.woff2" => "font/woff2",
+    "vendor/fonts/source-sans-3-bold.woff2" => "font/woff2",
+    "vendor/fonts/source-sans-3-it.woff2" => "font/woff2",
 };
 
 pub async fn serve(Path(path): Path<String>) -> Response {
@@ -30,6 +37,11 @@ pub async fn serve(Path(path): Path<String>) -> Response {
         Some((_, mime, body)) => ([(header::CONTENT_TYPE, *mime)], *body).into_response(),
         None => StatusCode::NOT_FOUND.into_response(),
     }
+}
+
+/// Browsers ask for /favicon.ico on their own (and for pages without our <link>s).
+pub async fn favicon() -> Response {
+    serve(Path("icons/favicon-32.png".into())).await
 }
 
 #[cfg(test)]

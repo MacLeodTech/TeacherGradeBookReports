@@ -72,8 +72,9 @@
     <div class="card-body row g-3">
       <div class="col-md-6"><label class="form-label">Board / district (header line)</label><input class="form-control" name="board_name" value="{{ settings.board_name }}" placeholder="e.g. Halton District School Board"></div>
       <div class="col-md-6"><label class="form-label">Default report title</label><input class="form-control" name="report_title" value="{{ settings.report_title }}"></div>
-      <div class="col-md-3"><label class="form-label">Main colour</label><input class="form-control form-control-color w-100" type="color" name="primary_color" value="{{ settings.primary_color }}"></div>
-      <div class="col-md-3"><label class="form-label">Accent colour</label><input class="form-control form-control-color w-100" type="color" name="accent_color" value="{{ settings.accent_color }}"></div>
+      <div class="col-md-3"><label class="form-label" for="primary_color">Main colour</label><input class="form-control form-control-color w-100" type="color" id="primary_color" name="primary_color" value="{{ settings.primary_color }}"></div>
+      <div class="col-md-3"><label class="form-label" for="accent_color">Accent colour</label><input class="form-control form-control-color w-100" type="color" id="accent_color" name="accent_color" value="{{ settings.accent_color }}"></div>
+      <div class="col-md-6 d-flex align-items-end"><div class="form-text mb-2">Your school's colours, for the banners and headings on PDF reports. Text on them switches to black or white automatically so it stays readable. Gradebook itself keeps its own colours.</div></div>
     </div>
   </div>
 

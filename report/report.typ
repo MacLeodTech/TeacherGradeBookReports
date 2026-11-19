@@ -9,7 +9,11 @@
 #let accent = rgb(d.accent)
 #let pale = accent.lighten(65%)
 #let ink = rgb("#1A1A1A")
-#let muted = primary.lighten(25%)
+// Text on the main colour is black or white, whichever reads better, and the
+// main colour is darkened (only if it's pale) where it's used as text.
+#let on-primary = rgb(d.on_primary)
+#let primary-ink = rgb(d.primary_text)
+#let muted = primary-ink.lighten(25%)
 
 #set document(title: d.student.name + " – " + d.title)
 #set text(font: "Source Sans 3", size: 9.5pt, fill: ink, lang: "en")
@@ -26,14 +30,15 @@
       place(top + left, dx: 0.4in, dy: 0.125in, box(height: 0.5in, image(sys.inputs.logo, height: 0.5in)))
     }
     place(top + center, dy: 0.16in, align(center)[
-      #text(fill: white, size: 15pt, weight: "bold", d.school)
+      #text(fill: on-primary, size: 15pt, weight: "bold", d.school)
       #v(-0.55em)
-      #text(fill: accent.lighten(30%), size: 9pt, d.subtitle)
+      // The pale accent tint only reads on a dark banner.
+      #text(fill: if d.on_primary == "#FFFFFF" { accent.lighten(30%) } else { on-primary }, size: 9pt, d.subtitle)
     ])
     // Footer banner
     place(bottom + left, rect(width: 100%, height: 0.45in, fill: primary))
     place(bottom + left, dy: -0.45in, rect(width: 100%, height: 0.035in, fill: accent))
-    let ft = (body) => text(fill: white, size: 7.5pt, body)
+    let ft = (body) => text(fill: on-primary, size: 7.5pt, body)
     place(bottom + left, dx: 0.5in, dy: -0.17in, ft("Generated " + d.date))
     place(bottom + center, dy: -0.17in, ft(d.footer))
     let total = counter(page).final().first()
@@ -53,17 +58,17 @@
 #let banner(left-part, right-part: none, fill: primary) = block(
   width: 100%, fill: fill, inset: (x: 8pt, y: 5pt), radius: (top: 3pt), below: 0pt,
   grid(columns: (1fr, auto), align: (left + horizon, right + horizon),
-    text(fill: white, weight: "bold", size: 11pt, left-part),
-    if right-part != none { text(fill: white, size: 9.5pt, right-part) },
+    text(fill: on-primary, weight: "bold", size: 11pt, left-part),
+    if right-part != none { text(fill: on-primary, size: 9.5pt, right-part) },
   ),
 )
 
-#let hdr(body) = text(fill: primary, weight: "bold", size: 8pt, body)
+#let hdr(body) = text(fill: primary-ink, weight: "bold", size: 8pt, body)
 
 // ── Student identity ─────────────────────────────────────────────────────────
 
 #grid(columns: (1fr, auto), align: (left + bottom, right + bottom),
-  text(size: 20pt, weight: "bold", fill: primary, d.student.name),
+  text(size: 20pt, weight: "bold", fill: primary-ink, d.student.name),
   text(size: 8.5pt, fill: muted)[
     #for (i, line) in d.meta_lines.enumerate() {
       if i > 0 { linebreak() }
@@ -81,11 +86,11 @@
   let s = d.subjects.at(0)
   block(width: 100%, fill: pale, stroke: 1.5pt + primary, radius: 4pt, inset: 8pt,
     grid(columns: (1.4fr, 1fr, 1fr, 1.1fr, 0.8fr), align: center + horizon, column-gutter: 4pt,
-      align(left, text(fill: primary, weight: "bold", size: 10pt, if s.overridden { "Final Grade" } else { "Current Grade" })),
+      align(left, text(fill: primary-ink, weight: "bold", size: 10pt, if s.overridden { "Final Grade" } else { "Current Grade" })),
       graded(s.overall_pct, s.overall_color, size: 22pt),
       graded(s.overall_label, s.overall_color, size: 22pt),
       text(fill: muted, size: 9pt)[Assessments#linebreak()Submitted],
-      text(fill: primary, weight: "bold", size: 16pt, s.submitted),
+      text(fill: primary-ink, weight: "bold", size: 16pt, s.submitted),
     ),
   )
 } else if d.subjects.len() > 1 {
@@ -162,7 +167,7 @@
     let rows = ()
     for u in s.units {
       if u.name != "" and s.units.len() > 1 {
-        rows.push(table.cell(colspan: 4, fill: accent.lighten(45%), text(weight: "bold", fill: primary, u.name)))
+        rows.push(table.cell(colspan: 4, fill: accent.lighten(45%), text(weight: "bold", fill: primary-ink, u.name)))
         rows.push(table.cell(fill: accent.lighten(45%), align: right, if u.avg != "—" { text(weight: "bold", fill: rgb(u.color), u.avg + " " + u.label) }))
       }
       for a in u.rows {
@@ -193,7 +198,7 @@
   if s.completion.len() > 0 {
     v(4pt)
     block(width: 100%, stroke: 0.5pt + accent, radius: 2pt, inset: 6pt, below: 0pt)[
-      #text(weight: "bold", fill: primary)[#s.completion_title]
+      #text(weight: "bold", fill: primary-ink)[#s.completion_title]
       #h(6pt) #text(size: 8.5pt, fill: muted, s.completion_summary)
       #v(-2pt)
       #grid(columns: (1fr,) * 4, row-gutter: 4pt, column-gutter: 6pt,
@@ -219,12 +224,12 @@
     v(4pt)
     block(width: 100%, stroke: 0.5pt + accent, radius: 2pt, inset: 7pt, below: 0pt)[
       #if s.comment != "" [
-        #text(weight: "bold", fill: primary)[Teacher Comments] \
+        #text(weight: "bold", fill: primary-ink)[Teacher Comments] \
         #s.comment
       ]
       #if s.comment != "" and s.next_steps != "" { v(3pt) }
       #if s.next_steps != "" [
-        #text(weight: "bold", fill: primary)[Next Steps] \
+        #text(weight: "bold", fill: primary-ink)[Next Steps] \
         #s.next_steps
       ]
     ]
@@ -243,7 +248,7 @@
       stroke: (x, y) => (x: none, bottom: 0.4pt + accent.lighten(30%)),
       inset: (x: 7pt, y: 4.5pt),
       align: (left, center, left, center),
-      ..d.skills.map(k => (k.name, text(weight: "bold", fill: primary, k.rating))).flatten(),
+      ..d.skills.map(k => (k.name, text(weight: "bold", fill: primary-ink, k.rating))).flatten(),
     )
     #text(size: 7.5pt, fill: muted)[E = Excellent · G = Good · S = Satisfactory · N = Needs Improvement]
   ]
