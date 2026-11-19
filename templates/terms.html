@@ -38,7 +38,7 @@
   </div>
   <div class="card-body">
     {% if row.classes %}
-    <p class="mb-3">{% for c in row.classes %}<span class="badge text-bg-light border me-1">{% if c.period %}P{{ c.period }} {% endif %}{{ c.name }}</span>{% endfor %}</p>
+    <p class="mb-3">{% for c in row.classes %}<span class="badge bg-body-tertiary text-body border me-1">{% if c.period %}P{{ c.period }} {% endif %}{{ c.name }}</span>{% endfor %}</p>
     {% endif %}
     <details>
       <summary class="small">Edit, copy or delete</summary>

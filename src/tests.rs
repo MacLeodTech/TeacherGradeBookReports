@@ -885,7 +885,7 @@ async fn starter_spreadsheet(storage: Storage) {
     assert!(crate::starter::is_template(&blank.body));
     let x = calamine::open_workbook_from_rs::<calamine::Xlsx<_>, _>(std::io::Cursor::new(blank.body.clone())).unwrap();
     use calamine::Reader;
-    assert_eq!(x.sheet_names(), ["How to fill this in", "Period 1", "Period 3", "_gradebook_template"]);
+    assert_eq!(x.sheet_names(), ["How to fill this in", "Example - Math", "Period 1", "Period 3", "_gradebook_template"]);
     // Uploading it unfilled says so.
     c.upload("/import", "file", "Gradebook starter spreadsheet.xlsx", &blank.body).await.redirects_to("/import");
     assert!(c.get("/import").await.text().contains("have any classes filled in yet"));

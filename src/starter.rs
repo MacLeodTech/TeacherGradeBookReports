@@ -128,7 +128,7 @@ fn preset(name: &str) -> Vec<(String, f64)> {
 
 /// An empty template shaped for the teacher's level.
 pub fn blank(settings: &Settings) -> Template {
-    let sheets = match settings.mode {
+    let sheets: Vec<SheetSpec> = match settings.mode {
         Mode::Elementary => {
             let subjects =
                 ["Language", "Mathematics", "Science and Technology", "Social Studies", "The Arts", "Health and Physical Education"];
@@ -162,7 +162,75 @@ pub fn blank(settings: &Settings) -> Template {
             (1..=3).map(|i| SheetSpec { title: format!("Course {i}"), categories: preset("university"), ..Default::default() }).collect()
         }
     };
+    let mut sheets = sheets;
+    sheets.insert(0, example(settings.mode));
     Template { missing_policy: settings.missing_policy, sheets }
+}
+
+/// A filled-in class showing every kind of entry. Its class name ends in
+/// "(example)", so uploading never imports it.
+fn example(mode: Mode) -> SheetSpec {
+    let (class, code, cats, k, t, c, a) = match mode {
+        Mode::Secondary => (
+            "Grade 9 Math (example)",
+            "MTH1W",
+            preset("ontario-secondary"),
+            "Knowledge & Understanding",
+            "Thinking & Investigation",
+            "Communication",
+            "Application",
+        ),
+        Mode::University => ("MATH 101 (example)", "MATH 101", preset("university"), "Assignments", "Assignments", "", "Midterm"),
+        Mode::Elementary => ("Grade 4 (example)", "", Vec::new(), "", "", "", ""),
+    };
+    let a_ = |name: &str, category: &str, out_of: f64, weight: f64, done: bool| AssessmentSpec {
+        name: name.into(),
+        category: category.into(),
+        out_of,
+        weight,
+        done,
+    };
+    let row = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    SheetSpec {
+        title: "Example - Math".into(),
+        class: class.into(),
+        subject: if mode == Mode::Elementary { "Mathematics".into() } else { String::new() },
+        course_code: code.into(),
+        categories: cats,
+        assessments: vec![
+            a_("Unit 1 Quiz", k, 20.0, 1.0, false),
+            a_("Unit 1 Test", a, 50.0, 2.0, false),
+            a_("Problem Set 1", t, 10.0, 1.0, false),
+            a_("Math Journal", c, 1.0, 1.0, true),
+            a_("Warm-up (practice)", k, 10.0, 0.0, false),
+            a_(
+                "Final Exam",
+                if mode == Mode::Secondary {
+                    "Final / Culminating"
+                } else if mode == Mode::University {
+                    "Final Exam"
+                } else {
+                    ""
+                },
+                100.0,
+                1.0,
+                false,
+            ),
+        ],
+        students: vec![
+            StudentSpec { number: "100001".into(), last: "Smith".into(), first: "John".into(), pronouns: "he".into() },
+            StudentSpec { number: "100002".into(), last: "Doe".into(), first: "Jane".into(), pronouns: "she".into() },
+        ],
+        // 17 points · 85% · missing · done · practice mark · not assessed yet
+        // 3/4 (fraction) · late · excused · not done · handed in, not marked
+        marks: vec![row(&["17", "85%", "M", "Y", "8", ""]), row(&["3/4", "41L", "X", "N", "?", ""])],
+        link_to: None,
+        period: None,
+    }
+}
+
+pub fn is_example(class: &str) -> bool {
+    class.trim().to_lowercase().ends_with("(example)")
 }
 
 /// The current term's classes, filled in, for working on in a spreadsheet.
@@ -330,6 +398,10 @@ fn help_sheet(ws: &mut Worksheet, st: &Styles, policy: MissingPolicy) -> AppResu
         .map_err(err)?;
 
     let steps = [
+        (
+            "Example",
+            "The \"Example - Math\" sheet is filled in to show how everything works: John Smith and Jane Doe, with one of each kind of mark. It's never imported (its class name ends in \"(example)\"), so keep it as a guide or delete it.",
+        ),
         (
             "1. Your classes",
             "Each class has its own sheet (the tabs at the bottom). Type the class name at the top; the course code and period are optional. Need more classes? Right-click a tab → Move or Copy → Create a copy, then change the class name. Delete sheets you don't need, or leave the class name blank.",
@@ -787,6 +859,10 @@ fn parse_sheet(name: &str, r: &Range<Data>, problems: &mut Vec<Problem>) -> Opti
     };
 
     let class = value(L_CLASS).map(|v| clip(text(v.2), 120)).unwrap_or_default();
+    // The example sheet is a guide, never imported.
+    if is_example(&class) {
+        return None;
+    }
     let subject = value(L_SUBJECT).map(|v| clip(text(v.2), 120)).unwrap_or_default();
     let course_code = value(L_CODE).map(|v| clip(text(v.2), 40)).unwrap_or_default();
     let period = match value(L_PERIOD) {
@@ -1226,7 +1302,7 @@ mod tests {
         }
         let t = blank(&settings(Mode::Secondary));
         let titles: Vec<_> = t.sheets.iter().map(|s| s.title.as_str()).collect();
-        assert_eq!(titles, ["Period 1", "Period 3", "Period 4"], "skips the prep period");
+        assert_eq!(titles, ["Example - Math", "Period 1", "Period 3", "Period 4"], "skips the prep period");
     }
 
     #[test]

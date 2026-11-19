@@ -48,9 +48,30 @@ the tests check that the file's student tables stay empty.
 
 ### 1. On a teacher's own computer
 
-Download the `gradebook` binary for Windows, macOS or Linux from the releases page and run it (on Windows and
-macOS, double-click). It starts on `127.0.0.1`, opens the browser and signs in through a one-time link.
-**Quit Gradebook** (in the menu) stops it.
+Download the file for your computer from the
+[latest release](https://github.com/MacLeodTech/TeacherGradeBookReports/releases/latest):
+
+| Computer | Download |
+|---|---|
+| Windows | `gradebook-windows-x64.zip` |
+| Mac with an Apple chip (M1 or later) | `gradebook-macos-arm64.tar.gz` |
+| Mac with an Intel chip | `gradebook-macos-x64.tar.gz` |
+| Linux | `gradebook-linux-x64.tar.gz` |
+
+Not sure which Mac you have? Apple menu → **About This Mac**: "Chip" means Apple, "Processor" means Intel.
+
+Unzip it (double-click the file) and double-click `gradebook` (`gradebook.exe` on Windows). It starts on
+`127.0.0.1`, opens the browser and signs in through a one-time link. **Quit Gradebook** (in the menu) stops it.
+
+The downloads aren't code-signed yet, so the first time you open Gradebook your computer warns you:
+
+- **Windows:** "Windows protected your PC". Click **More info**, then **Run anyway**.
+- **macOS:** "gradebook" can't be opened / "Apple could not verify…". Click **Done** (not Move to Trash), open
+  **System Settings → Privacy & Security**, scroll down to the message about `gradebook` and click **Open Anyway**,
+  then confirm with your password. Or, in Terminal: `xattr -d com.apple.quarantine ~/Downloads/gradebook`.
+- **Linux:** no warning. If it won't run, make it executable with `chmod +x gradebook`.
+
+You only need to do this once per download.
 
 ```bash
 gradebook local                 # in-memory (default): save your workbook before quitting

@@ -17,6 +17,7 @@ static FILES: &[(&str, &str, &[u8])] = files! {
     "app.css" => "text/css; charset=utf-8",
     "js/app.js" => "text/javascript; charset=utf-8",
     "js/grid.js" => "text/javascript; charset=utf-8",
+    "js/theme.js" => "text/javascript; charset=utf-8",
     "vendor/bootstrap.min.css" => "text/css; charset=utf-8",
     "vendor/bootstrap-icons.min.css" => "text/css; charset=utf-8",
     "vendor/bootstrap.bundle.min.js" => "text/javascript; charset=utf-8",
