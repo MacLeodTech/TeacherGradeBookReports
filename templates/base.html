@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf }}">
+  <title>{% block title %}Gradebook{% endblock %} · Gradebook</title>
+  <link rel="stylesheet" href="/static/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/vendor/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/static/app.css">
+  {% if settings %}<style>:root { --gb-primary: {{ settings.primary_color }}; --gb-accent: {{ settings.accent_color }}; }</style>{% endif %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+{% if user %}
+<nav class="navbar navbar-expand-lg navbar-dark gb-nav">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-semibold" href="/"><i class="bi bi-journal-check"></i> Gradebook</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav" aria-label="Menu"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="nav">
+      <ul class="navbar-nav me-auto">
+        {% if nav_classes %}
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Classes</a>
+          <ul class="dropdown-menu">
+            {% for c in nav_classes %}
+            <li><a class="dropdown-item" href="/classes/{{ c.id }}">{% if c.period %}P{{ c.period }} · {% endif %}{{ c.name }}</a></li>
+            {% endfor %}
+          </ul>
+        </li>
+        {% endif %}
+        {% if storage == "memory" %}
+        <li class="nav-item"><a class="nav-link" href="/workbook"><i class="bi bi-folder2-open"></i> Open workbook</a></li>
+        {% endif %}
+        <li class="nav-item"><a class="nav-link" href="/import"><i class="bi bi-upload"></i> Import</a></li>
+        <li class="nav-item"><a class="nav-link" href="/comments"><i class="bi bi-chat-square-quote"></i> Comment bank</a></li>
+        <li class="nav-item"><a class="nav-link" href="/terms"><i class="bi bi-calendar3"></i> Terms</a></li>
+      </ul>
+      {% if nav_term %}<span class="navbar-text me-3 small text-white-50">{{ nav_term.name }}</span>{% endif %}
+      <ul class="navbar-nav">
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"><i class="bi bi-person-circle"></i> {% if local %}{{ user.full_name or "Me" }}{% else %}{{ user.full_name or user.username }}{% endif %}</a>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="/settings"><i class="bi bi-gear"></i> Settings</a></li>
+            <li><a class="dropdown-item" href="/profile"><i class="bi bi-person"></i> {% if user.external %}Profile{% else %}Profile &amp; security{% endif %}</a></li>
+            {% if storage != "memory" %}
+            <li><a class="dropdown-item" href="/workbook"><i class="bi bi-file-earmark-spreadsheet"></i> Workbook file</a></li>
+            {% endif %}
+            {% if user.is_admin and not local %}
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="/admin/users"><i class="bi bi-people"></i> Accounts</a></li>
+            <li><a class="dropdown-item" href="/admin/audit"><i class="bi bi-journal-text"></i> Audit log</a></li>
+            <li><a class="dropdown-item" href="/admin/backups"><i class="bi bi-hdd"></i> Backups</a></li>
+            {% endif %}
+            <li><hr class="dropdown-divider"></li>
+            <li>
+              {% set leave_warning = "You have changes you haven't saved to your workbook. They'll be cleared. Continue?" %}
+              <form method="post" action="{% if local %}/quit{% else %}/logout{% endif %}">
+                <input type="hidden" name="csrf_token" value="{{ csrf }}">
+                <button class="dropdown-item" data-leave{% if workspace and workspace.unsaved %} data-confirm="{{ leave_warning }}"{% endif %} data-leave-warning="{{ leave_warning }}">
+                  {% if local %}<i class="bi bi-power"></i> Quit Gradebook{% else %}<i class="bi bi-box-arrow-right"></i> Sign out{% endif %}
+                </button>
+              </form>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+{% if workspace %}
+<div class="gb-privacy-bar{% if workspace.unsaved %} unsaved{% endif %}" id="ws-bar">
+  <div class="container-fluid d-flex flex-wrap align-items-center gap-2 small py-1">
+    <i class="bi bi-shield-lock"></i>
+    <span>Student information isn't saved {% if local %}on this computer{% else %}on the server{% endif %}: it's only kept until you {% if local %}quit Gradebook{% else %}sign out, or after {{ idle_minutes }} minutes without activity{% endif %}. Save your workbook to keep your work.</span>
+    <span class="ms-auto" id="ws-state">{% if workspace.unsaved %}<strong>Unsaved changes</strong>{% elif workspace.saved_at %}Saved to your workbook at {{ workspace.saved_at }}{% else %}Nothing new to save{% endif %}</span>
+    <a class="btn btn-sm btn-light py-0" href="/workbook.xlsx" data-save-workbook><i class="bi bi-download"></i> Save workbook</a>
+  </div>
+</div>
+{% endif %}
+{% endif %}
+<main class="{% block container %}container{% endblock %} py-4">
+  {% for f in flashes %}
+  <div class="alert alert-{{ f.kind }} alert-dismissible fade show" role="alert">
+    {{ f.msg }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+  {% endfor %}
+  {% block content %}{% endblock %}
+</main>
+<script src="/static/vendor/bootstrap.bundle.min.js"></script>
+<script src="/static/js/app.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

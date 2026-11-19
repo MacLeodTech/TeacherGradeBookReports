@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "macros.html" import class_tabs, grade %}
+{% block title %}{{ class.name }} · Insights{% endblock %}
+{% block content %}
+{{ class_tabs(class, "insights") }}
+{% for s in subjects %}
+<div class="card mb-4">
+  <div class="card-header fw-semibold">{{ s.subject.name }}</div>
+  <div class="card-body">
+    <div class="row g-4">
+      <div class="col-lg-4">
+        <div class="d-flex gap-4 mb-3">
+          <div><div class="small text-muted">Class average</div>{{ grade(s.average, s.avg_label, s.avg_color) }}</div>
+          <div><div class="small text-muted">Median</div><span class="fw-semibold">{{ s.median|pct }}</span></div>
+          <div><div class="small text-muted">Graded</div><span class="fw-semibold">{{ s.graded }}/{{ s.students }}</span></div>
+        </div>
+        <div class="small text-muted mb-1">Grade distribution</div>
+        {% for d in s.dist %}
+        <div class="dist-row"><span class="dist-label">{{ d.label }}</span><div class="dist-bar"><div style="width: {{ d.pct }}%; background: {{ d.color }}"></div></div><span class="dist-n">{{ d.n }}</span></div>
+        {% endfor %}
+      </div>
+      <div class="col-lg-3">
+        <div class="small text-muted mb-1">Students to check in with</div>
+        {% for r in s.at_risk %}
+        <div class="mb-1"><a href="/classes/{{ class.id }}/students/{{ r.id }}">{{ r.name }}</a><br><span class="small">{{ grade(r.overall, r.label, r.color) }}{% if r.missing %} <span class="text-danger">{{ r.missing }} missing</span>{% endif %}</span></div>
+        {% else %}
+        <p class="text-muted small">Nobody below 60% or with 3+ missing assessments.</p>
+        {% endfor %}
+      </div>
+      <div class="col-lg-5">
+        <div class="small text-muted mb-1">Assessments</div>
+        <table class="table table-sm small align-middle">
+          <thead><tr><th>Assessment</th><th class="text-end">Average</th><th class="text-end">Marked</th><th class="text-end">Missing</th><th class="text-end">Blank</th></tr></thead>
+          <tbody>
+            {% for a in s.assessments %}
+            <tr><td>{{ a.name }}{% if a.unit %} <span class="text-muted">· {{ a.unit }}</span>{% endif %}</td><td class="text-end" style="color: {{ a.color or 'inherit' }}">{{ a.avg|pct }}</td><td class="text-end">{{ a.marked }}</td><td class="text-end">{{ a.missing or "" }}</td><td class="text-end">{{ a.blank or "" }}</td></tr>
+            {% else %}
+            <tr><td colspan="5" class="text-muted">No assessments yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

@@ -12,8 +12,14 @@ on:
   workflow_dispatch:
 
 jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+    permissions:
+      contents: read
+
   build-and-push:
     name: Build and Push to ghcr.io
+    needs: test
     runs-on: ubuntu-latest
 
     permissions:

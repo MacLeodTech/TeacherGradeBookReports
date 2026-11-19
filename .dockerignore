@@ -1,34 +1,14 @@
-# Development artifacts
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-*.egg-info/
-dist/
-build/
-
-# Local data / generated outputs
-Grades.xlsx
-reports/
-.venv/
-venv/
-
-# Environment / secrets
+target/
+.git/
+.github/
+.vscode/
+.idea/
+docs/
+*.md
+*.db
+*.xlsx
 .env
 .env.*
 *.env
-
-# Tests / smoke scripts
-smoke_test.*
-entrypoint.sh
-
-# Editor / OS
-.vscode/
-.idea/
-*.DS_Store
+**/.DS_Store
 Thumbs.db
-
-# Docs / logs
-*.md
-*.log

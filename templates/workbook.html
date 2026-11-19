@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Workbook{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3"><i class="bi bi-file-earmark-spreadsheet"></i> Your workbook</h1>
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header fw-semibold"><i class="bi bi-folder2-open"></i> Open a workbook</div>
+      <div class="card-body">
+        <form method="post" action="/workbook?csrf_token={{ csrf }}" enctype="multipart/form-data">
+          <div class="drop-zone p-4 mb-3 text-center">
+            <input class="form-control" type="file" name="file" accept=".xlsx" required>
+            <div class="form-text">The <code>.xlsx</code> file you saved from Gradebook.</div>
+          </div>
+          {% if classes > 0 %}
+          <div class="mb-3">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="mode" value="replace" id="m-replace"{% if storage == "memory" %} checked{% endif %}>
+              <label class="form-check-label" for="m-replace">Replace what's open now with the workbook</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="mode" value="add" id="m-add"{% if storage != "memory" %} checked{% endif %}>
+              <label class="form-check-label" for="m-add">Add the workbook's terms and classes to what's here</label>
+            </div>
+          </div>
+          {% else %}
+          <input type="hidden" name="mode" value="replace">
+          {% endif %}
+          <button class="btn btn-primary"><i class="bi bi-folder2-open"></i> Open</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header fw-semibold"><i class="bi bi-download"></i> Save your workbook</div>
+      <div class="card-body">
+        <p>One Excel file holds everything: classes, students, marks, comments, learning skills and report history. Each class has a readable marks sheet; the hidden sheets let Gradebook open it again exactly as it was.</p>
+        {% if storage == "memory" %}
+        <p class="small text-muted">Nothing about your students is kept {% if local %}on this computer{% else %}on the server{% endif %} after you {% if local %}quit{% else %}sign out{% endif %}. Save the workbook somewhere your school allows student information (for example your board OneDrive), and open it next time.</p>
+        {% else %}
+        <p class="small text-muted">Your data is also stored here, so this is a copy you can keep or move to another Gradebook.</p>
+        {% endif %}
+        <a class="btn btn-success" href="/workbook.xlsx" data-save-workbook{% if classes == 0 %} aria-disabled="true"{% endif %}><i class="bi bi-download"></i> Save workbook</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

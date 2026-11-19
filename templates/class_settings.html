@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% from "macros.html" import class_tabs %}
+{% block title %}{{ class.name }} · Setup{% endblock %}
+{% block content %}
+{{ class_tabs(class, "settings") }}
+<div class="row g-4">
+  <div class="col-lg-4">
+    <div class="card mb-4">
+      <div class="card-header fw-semibold">Class details</div>
+      <div class="card-body">
+        <form method="post" action="/classes/{{ class.id }}/settings">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <div class="mb-2"><label class="form-label small">Name</label><input class="form-control" name="name" value="{{ class.name }}" required></div>
+          <div class="mb-2"><label class="form-label small">Course code</label><input class="form-control" name="course_code" value="{{ class.course_code }}"></div>
+          {% if settings.mode == "secondary" %}
+          <div class="mb-2"><label class="form-label small">Period</label>
+            <select class="form-select" name="period"><option value="">—</option>{% for p in [1,2,3,4] %}<option value="{{ p }}" {% if class.period == p %}selected{% endif %}>Period {{ p }}{% if settings.prep_period == p %} (your prep){% endif %}</option>{% endfor %}</select>
+          </div>
+          {% endif %}
+          <div class="mb-2"><label class="form-label small">Grade</label><input class="form-control" name="grade_level" value="{{ class.grade_level }}"></div>
+          <div class="mb-3"><label class="form-label small">Room</label><input class="form-control" name="room" value="{{ class.room }}"></div>
+          <button class="btn btn-primary btn-sm">Save</button>
+          <a class="btn btn-outline-secondary btn-sm" href="/classes/{{ class.id }}/export.xlsx"><i class="bi bi-file-earmark-spreadsheet"></i> Export to Excel</a>
+        </form>
+      </div>
+    </div>
+    <div class="card border-danger-subtle">
+      <div class="card-header fw-semibold text-danger">Delete class</div>
+      <div class="card-body">
+        <form method="post" action="/classes/{{ class.id }}/delete">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <p class="small">Deletes the class with all its marks, comments and report history. Type <strong>{{ class.name }}</strong> to confirm.</p>
+          <div class="input-group input-group-sm"><input class="form-control" name="confirm_name" autocomplete="off"><button class="btn btn-outline-danger">Delete</button></div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <h2 class="h5">Subjects &amp; weighting</h2>
+    <p class="text-muted small">Each subject gets its own mark sheet and its own grade on the report. Categories decide how assessments add up: an assessment counts towards its category's average, and categories are combined by their weights.</p>
+    {% for row in subjects %}
+    {% set s = row.subject %}
+    <div class="card mb-3" id="subject-{{ s.id }}">
+      <div class="card-header">
+        <form method="post" action="/classes/{{ class.id }}/subjects/{{ s.id }}" class="d-flex gap-2 align-items-center">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <input class="form-control form-control-sm fw-semibold" name="name" value="{{ s.name }}" required>
+          <select class="form-select form-select-sm w-auto" name="report_style">
+            <option value="percent" {% if s.report_style == "percent" %}selected{% endif %}>Report as %</option>
+            <option value="letter" {% if s.report_style == "letter" %}selected{% endif %}>Report as letter</option>
+          </select>
+          <button class="btn btn-sm btn-outline-primary">Rename</button>
+          <a class="btn btn-sm btn-link" href="/classes/{{ class.id }}?subject={{ s.id }}">Marks ({{ row.n_assess }})</a>
+        </form>
+      </div>
+      <div class="card-body">
+        <form method="post" action="/classes/{{ class.id }}/subjects/{{ s.id }}/categories">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <table class="table table-sm align-middle mb-2" id="cats-{{ s.id }}">
+            <thead><tr><th>Category</th><th style="width:9rem">Weight %</th><th style="width:3rem"></th></tr></thead>
+            <tbody>
+              {% for c in row.categories %}
+              <tr>
+                <td><input type="hidden" name="cat_id" value="{{ c.id }}"><input class="form-control form-control-sm" name="cat_name" value="{{ c.name }}"></td>
+                <td><input class="form-control form-control-sm" name="cat_weight" value="{{ c.weight|num }}" inputmode="decimal" data-weight></td>
+                <td><button type="button" class="btn btn-sm btn-link text-danger" data-remove-row title="Remove"><i class="bi bi-x-lg"></i></button></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot><tr><td class="text-end small">Total</td><td><span data-weight-total class="fw-semibold {% if not row.total_ok %}text-danger{% endif %}">{{ row.total }}%</span></td><td></td></tr></tfoot>
+          </table>
+          {% if not row.categories %}<p class="small text-muted">No categories: the grade is a simple weighted average of every assessment.</p>{% endif %}
+          <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-add-row="#cats-{{ s.id }}" data-template="cat">Add category</button>
+            <button class="btn btn-sm btn-primary">Save weights</button>
+            <div class="ms-auto input-group input-group-sm w-auto">
+              <select class="form-select" name="preset" data-preset-select>
+                <option value="">Replace with a preset…</option>
+                <option value="ontario-secondary">Ontario 70/30 + K/T/C/A</option>
+                <option value="ontario-70-30">Ontario 70/30</option>
+                <option value="ontario-ktca">K/T/C/A only</option>
+                <option value="university">Assignments / midterm / exam</option>
+                <option value="none">No categories</option>
+              </select>
+              <button class="btn btn-outline-secondary" data-confirm="Replace this subject's categories with the preset? Existing assessments will be moved into the first category.">Apply</button>
+            </div>
+          </div>
+        </form>
+      </div>
+      {% if subjects|length > 1 %}
+      <div class="card-footer text-end">
+        <form method="post" action="/classes/{{ class.id }}/subjects/{{ s.id }}/delete">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <button class="btn btn-sm btn-link text-danger" data-confirm="Delete {{ s.name }} and all of its marks?">Delete subject</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+    <form method="post" action="/classes/{{ class.id }}/subjects" class="card card-body">
+      <input type="hidden" name="csrf_token" value="{{ csrf }}">
+      <label class="form-label fw-semibold">Add a subject</label>
+      <div class="input-group">
+        <input class="form-control" name="name" placeholder="e.g. French" required>
+        <select class="form-select" name="report_style" style="max-width:12rem"><option value="percent">Report as %</option><option value="letter">Report as letter</option></select>
+        <button class="btn btn-outline-primary">Add</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

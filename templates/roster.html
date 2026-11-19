@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% from "macros.html" import class_tabs %}
+{% block title %}{{ class.name }} · Students{% endblock %}
+{% block content %}
+{{ class_tabs(class, "students") }}
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header fw-semibold">{{ roster|length }} student{% if roster|length != 1 %}s{% endif %}</div>
+      {% if roster %}
+      <table class="table table-hover mb-0 align-middle">
+        <thead><tr><th>Name</th><th>Student #</th><th></th></tr></thead>
+        <tbody>
+          {% for s in roster %}
+          <tr>
+            <td><a href="/classes/{{ class.id }}/students/{{ s.id }}">{{ s.last_name }}{% if s.last_name %}, {% endif %}{{ s.preferred_name or s.first_name }}</a>{% if s.preferred_name and s.preferred_name != s.first_name %} <small class="text-muted">({{ s.first_name }})</small>{% endif %}</td>
+            <td class="text-muted">{{ s.student_number }}</td>
+            <td class="text-end">
+              {% if not class.archived %}
+              <form method="post" action="/classes/{{ class.id }}/students/{{ s.id }}/remove" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf }}">
+                <button class="btn btn-sm btn-link text-danger" data-confirm="Remove {{ s.first_name }} from this class? Their marks are kept.">Remove</button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="card-body text-muted">No students yet. Add them on the right, or <a href="/import?class={{ class.id }}">import a spreadsheet</a>.</div>
+      {% endif %}
+    </div>
+  </div>
+  {% if not class.archived %}
+  <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">Add one student</div>
+      <div class="card-body">
+        <form method="post" action="/classes/{{ class.id }}/students" class="row g-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <div class="col-6"><input class="form-control" name="first_name" placeholder="First name" required></div>
+          <div class="col-6"><input class="form-control" name="last_name" placeholder="Last name"></div>
+          <div class="col-8"><input class="form-control" name="student_number" placeholder="Student # (optional)"></div>
+          <div class="col-4"><button class="btn btn-primary w-100">Add</button></div>
+        </form>
+      </div>
+    </div>
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">Paste a list</div>
+      <div class="card-body">
+        <form method="post" action="/classes/{{ class.id }}/students">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <textarea class="form-control mb-2" name="bulk" rows="6" placeholder="One per line: &#10;Smith, Jane&#10;John Doe&#10;Lee, Ana	123456"></textarea>
+          <div class="form-text mb-2">"Last, First" or "First Last". Copying two columns (name, student #) from a spreadsheet works too.</div>
+          <button class="btn btn-primary">Add students</button>
+        </form>
+      </div>
+    </div>
+    {% if others %}
+    <div class="card">
+      <div class="card-header fw-semibold">From your other classes</div>
+      <div class="card-body">
+        <form method="post" action="/classes/{{ class.id }}/students">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <select class="form-select mb-2" name="existing" multiple size="6">
+            {% for id, name in others %}<option value="{{ id }}">{{ name }}</option>{% endfor %}
+          </select>
+          <button class="btn btn-outline-primary">Add selected</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

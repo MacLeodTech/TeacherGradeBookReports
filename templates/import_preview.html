@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Import · preview{% endblock %}
+{% block content %}
+<h1 class="h3">Ready to import</h1>
+<p class="text-muted">From <strong>{{ filename }}</strong> into <strong>{{ target_label }}</strong>. Nothing has been saved yet.</p>
+<div class="row g-3 mb-4">
+  {% for n, label, cls in [
+    (plan.new_students|length, "new students", "primary"),
+    (plan.matched_students, "existing students matched", "secondary"),
+    (plan.new_assessments|length, "new assessments", "primary"),
+    (plan.changed_marks, "marks added or changed", "success"),
+    (plan.unchanged_marks, "marks already up to date", "secondary"),
+    (plan.overrides, "final grades set", "warning")] %}
+  {% if n or loop.index <= 4 %}
+  <div class="col-6 col-md-4 col-lg-2"><div class="card text-center h-100"><div class="card-body"><div class="display-6 text-{{ cls }}">{{ n }}</div><div class="small text-muted">{{ label }}</div></div></div></div>
+  {% endif %}
+  {% endfor %}
+</div>
+{% for w in plan.warnings %}<div class="alert alert-warning py-2 small">{{ w }}</div>{% endfor %}
+{% if plan.skipped_rows %}<div class="alert alert-secondary py-2 small">{{ plan.skipped_rows }} row(s) without a student name were skipped.</div>{% endif %}
+<div class="row g-3">
+  {% if plan.new_students %}
+  <div class="col-md-6"><div class="card"><div class="card-header small fw-semibold">New students</div><div class="card-body small">{{ plan.new_students|join(", ") }}</div></div></div>
+  {% endif %}
+  {% if plan.new_assessments %}
+  <div class="col-md-6"><div class="card"><div class="card-header small fw-semibold">New assessments</div><div class="card-body small">{{ plan.new_assessments|join(", ") }}</div></div></div>
+  {% endif %}
+</div>
+<form method="post" action="/import/{{ id }}/apply" class="mt-4">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  {% for k, v in form if k != "csrf_token" %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+  <button class="btn btn-primary btn-lg">Import</button>
+  <a class="btn btn-link" href="/import/{{ id }}">Back</a>
+</form>
+{% endblock %}

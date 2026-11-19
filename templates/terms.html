@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Terms{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+  <h1 class="h3 mb-0">Terms</h1>
+  <button class="btn btn-primary ms-auto" data-bs-toggle="collapse" data-bs-target="#new-term"><i class="bi bi-plus-lg"></i> New term</button>
+</div>
+<p class="text-muted">A term (or semester) holds its own classes and marks. Start a new one each semester; old terms stay available read-only once archived.</p>
+
+<div class="collapse mb-4" id="new-term">
+  <div class="card card-body">
+    <form method="post" action="/terms" class="row g-3 align-items-end">
+      <input type="hidden" name="csrf_token" value="{{ csrf }}">
+      <div class="col-md-3"><label class="form-label">Name</label><input class="form-control" name="name" placeholder="Semester 2 2026–27" required></div>
+      <div class="col-md-3"><label class="form-label">Reporting period label</label><input class="form-control" name="period_label" placeholder="Progress Report 1"></div>
+      <div class="col-md-2"><label class="form-label">Starts</label><input class="form-control" type="date" name="start_date"></div>
+      <div class="col-md-2"><label class="form-label">Ends</label><input class="form-control" type="date" name="end_date"></div>
+      <div class="col-md-2"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="is_current" id="ic" value="1" checked><label class="form-check-label" for="ic">Make current</label></div></div>
+      <div class="col-12"><button class="btn btn-primary">Create term</button></div>
+    </form>
+  </div>
+</div>
+
+{% for row in terms %}
+{% set t = row.term %}
+<div class="card mb-3 {% if t.is_current %}border-primary{% endif %}">
+  <div class="card-header d-flex align-items-center gap-2">
+    <span class="fw-semibold">{{ t.name }}</span>
+    {% if t.is_current %}<span class="badge text-bg-primary">Current</span>{% endif %}
+    {% if t.archived %}<span class="badge text-bg-secondary">Archived</span>{% endif %}
+    <span class="text-muted small ms-2">{{ row.classes|length }} class(es) · {{ row.students }} student(s){% if t.start_date %} · {{ t.start_date }} → {{ t.end_date or "?" }}{% endif %}</span>
+    <div class="ms-auto d-flex gap-2">
+      {% if not t.is_current %}
+      <form method="post" action="/terms/{{ t.id }}/current"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn btn-sm btn-outline-primary">Switch to this term</button></form>
+      {% endif %}
+      <form method="post" action="/terms/{{ t.id }}/archive"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn btn-sm btn-outline-secondary">{% if t.archived %}Unarchive{% else %}Archive{% endif %}</button></form>
+    </div>
+  </div>
+  <div class="card-body">
+    {% if row.classes %}
+    <p class="mb-3">{% for c in row.classes %}<span class="badge text-bg-light border me-1">{% if c.period %}P{{ c.period }} {% endif %}{{ c.name }}</span>{% endfor %}</p>
+    {% endif %}
+    <details>
+      <summary class="small">Edit, copy or delete</summary>
+      <div class="row g-4 mt-1">
+        <div class="col-lg-6">
+          <form method="post" action="/terms/{{ t.id }}" class="row g-2">
+            <input type="hidden" name="csrf_token" value="{{ csrf }}">
+            <div class="col-6"><label class="form-label small">Name</label><input class="form-control form-control-sm" name="name" value="{{ t.name }}" required></div>
+            <div class="col-6"><label class="form-label small">Reporting period label</label><input class="form-control form-control-sm" name="period_label" value="{{ t.period_label }}"></div>
+            <div class="col-6"><label class="form-label small">Starts</label><input class="form-control form-control-sm" type="date" name="start_date" value="{{ t.start_date or '' }}"></div>
+            <div class="col-6"><label class="form-label small">Ends</label><input class="form-control form-control-sm" type="date" name="end_date" value="{{ t.end_date or '' }}"></div>
+            <div class="col-12"><button class="btn btn-sm btn-primary">Save</button></div>
+          </form>
+        </div>
+        <div class="col-lg-6">
+          {% if row.classes and terms|length > 1 %}
+          <form method="post" action="/terms/{{ t.id }}/copy" class="mb-3">
+            <input type="hidden" name="csrf_token" value="{{ csrf }}">
+            <label class="form-label small">Copy this term's classes, subjects and weights into:</label>
+            <div class="input-group input-group-sm mb-1">
+              <select class="form-select" name="to_term">
+                {% for other in terms if other.term.id != t.id %}<option value="{{ other.term.id }}">{{ other.term.name }}</option>{% endfor %}
+              </select>
+              <button class="btn btn-outline-primary">Copy</button>
+            </div>
+            <div class="form-check form-check-inline small"><input class="form-check-input" type="checkbox" name="assessments" value="1" id="ca{{ t.id }}"><label class="form-check-label" for="ca{{ t.id }}">include assessment columns</label></div>
+            <div class="form-check form-check-inline small"><input class="form-check-input" type="checkbox" name="students" value="1" id="cs{{ t.id }}"><label class="form-check-label" for="cs{{ t.id }}">include students</label></div>
+          </form>
+          {% endif %}
+          <form method="post" action="/terms/{{ t.id }}/purge">
+            <input type="hidden" name="csrf_token" value="{{ csrf }}">
+            <label class="form-label small text-danger">Delete this term and everything in it. Type <strong>{{ t.name }}</strong> to confirm:</label>
+            <div class="input-group input-group-sm">
+              <input class="form-control" name="confirm_name" autocomplete="off">
+              <button class="btn btn-outline-danger">Delete permanently</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </details>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-info">No terms yet. Create one to start adding classes.</div>
+{% endfor %}
+{% endblock %}

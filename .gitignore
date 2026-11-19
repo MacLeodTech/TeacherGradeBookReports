@@ -1,18 +1,14 @@
 # Secrets — never commit
 .env
 
-# Python
-__pycache__/
-*.pyc
-*.pyo
+# Rust build output
+/target/
 
-# Uploaded files / generated reports
-reports/
+# Local data
+*.db
+*.db-wal
+*.db-shm
 
-# Virtual environment
-.venv/
-
-# OS
+# OS / editor
 .DS_Store
 Thumbs.db
-

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% from "macros.html" import class_tabs, grade %}
+{% block title %}{{ class.name }} · Reports{% endblock %}
+{% block content %}
+{{ class_tabs(class, "reports") }}
+<form method="post" action="/classes/{{ class.id }}/reports">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  <div class="card mb-3">
+    <div class="card-body row g-3 align-items-center">
+      <div class="col-md-3">
+        <select class="form-select" name="report_type">
+          {% for t in report_types %}<option {% if t == defaults.report_type %}selected{% endif %}>{{ t }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-9 d-flex flex-wrap gap-3 small">
+        {% for k, t in [("show_categories", "Category breakdown"), ("show_assessments", "Assessments"), ("show_missing", "Missing work"), ("show_comments", "Comments"), ("show_skills", "Learning skills"), ("show_legend", "Grade legend"), ("show_signature", "Signature lines"), ("combined", "Include the student's other classes")] %}
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="{{ k }}" value="1" id="{{ k }}" {% if defaults[k] %}checked{% endif %}><label class="form-check-label" for="{{ k }}">{{ t }}</label></div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+    <button type="button" class="btn btn-sm btn-outline-secondary" data-check-where="needs">Select students needing a new report</button>
+    <span class="small text-muted ms-2">A report is "needed" if none has been downloaded yet, or marks changed since the last one.</span>
+    <button class="btn btn-primary ms-auto"><i class="bi bi-file-earmark-zip"></i> Download selected as ZIP</button>
+  </div>
+  <div class="card">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr>
+        <th style="width:2rem"><input class="form-check-input" type="checkbox" data-check-all="student" aria-label="Select all"></th>
+        <th>Student</th><th>Average</th><th>Missing</th><th>Comments</th><th>Last report</th><th></th>
+      </tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td><input class="form-check-input" type="checkbox" name="student" value="{{ r.id }}" data-needs="{{ 1 if r.needs else 0 }}" {% if r.needs %}checked{% endif %}></td>
+          <td><a href="/classes/{{ class.id }}/students/{{ r.id }}">{{ r.name }}</a></td>
+          <td>{{ grade(r.avg, r.label, r.color) }}</td>
+          <td>{% if r.missing %}<span class="text-danger">{{ r.missing }}</span>{% else %}<span class="text-muted">0</span>{% endif %}{% if r.pending %} <span class="small text-muted">(+{{ r.pending }} to mark)</span>{% endif %}</td>
+          <td>{% if r.comments >= r.subjects %}<i class="bi bi-check-circle text-success"></i>{% elif r.comments %}{{ r.comments }}/{{ r.subjects }}{% else %}<span class="text-warning"><i class="bi bi-exclamation-circle"></i> none</span>{% endif %}</td>
+          <td class="small">{% if r.last %}{{ r.last }}{% if r.changed %} <span class="badge text-bg-warning">{{ r.changed }} change{% if r.changed != 1 %}s{% endif %} since</span>{% endif %}{% else %}<span class="text-muted">never</span>{% endif %}</td>
+          <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="/classes/{{ class.id }}/students/{{ r.id }}">Preview</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-muted p-4">No students in this class yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% macro grade(pct, label, color) %}
+{% if pct is not none %}<span class="grade-pill" style="--c: {{ color }}">{{ pct|pct }}{% if label %} · {{ label }}{% endif %}</span>{% else %}<span class="text-muted">—</span>{% endif %}
+{% endmacro %}
+
+{% macro class_tabs(class, active) %}
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+  <h1 class="h3 mb-0 me-3">{{ class.name }}{% if class.course_code and class.course_code != class.name %} <small class="text-muted">{{ class.course_code }}</small>{% endif %}</h1>
+  {% if class.archived %}<span class="badge text-bg-secondary">Archived term (read-only)</span>{% endif %}
+  <ul class="nav nav-pills ms-auto">
+    {% for key, href, icon, text in [
+      ("grid", "", "table", "Marks"),
+      ("students", "/students", "people", "Students"),
+      ("reports", "/reports", "file-earmark-pdf", "Reports"),
+      ("insights", "/insights", "bar-chart", "Insights"),
+      ("settings", "/settings", "sliders", "Setup")] %}
+    <li class="nav-item"><a class="nav-link {% if active == key %}active{% endif %}" href="/classes/{{ class.id }}{{ href }}"><i class="bi bi-{{ icon }}"></i> {{ text }}</a></li>
+    {% endfor %}
+  </ul>
+</div>
+{% endmacro %}
