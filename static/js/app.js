@@ -2,6 +2,19 @@
 (function () {
   "use strict";
 
+  // Highlight the menu entry for the page you're on.
+  const here = location.pathname;
+  document.querySelectorAll(".gb-nav .navbar-nav > .nav-item > a.nav-link[href]").forEach((a) => {
+    const href = a.getAttribute("href");
+    if (href !== "/" && href !== "#" && (here === href || here.startsWith(href + "/"))) a.setAttribute("aria-current", "page");
+  });
+  if (here.startsWith("/classes/")) {
+    const nav = document.querySelector(".gb-nav [data-nav-classes]");
+    const id = here.split("/")[2];
+    const item = document.querySelector(`.gb-nav .dropdown-menu a[href="/classes/${id}"]`);
+    if (item) { item.classList.add("active"); if (nav) nav.setAttribute("aria-current", "page"); }
+  }
+
   // Confirm before submitting dangerous forms: <button data-confirm="…">.
   document.addEventListener("click", (e) => {
     const el = e.target.closest("[data-confirm]");
