@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Check your spreadsheet{% endblock %}
+{% block content %}
+<h1 class="h3">Check before importing</h1>
+<p class="text-muted">From <strong>{{ filename }}</strong>. Nothing has been saved yet.</p>
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header fw-semibold"><i class="bi bi-list-check"></i> What will happen</div>
+      <ul class="list-group list-group-flush">
+        {% for c in outcome.classes_new %}<li class="list-group-item"><i class="bi bi-plus-circle text-success"></i> New class: <strong>{{ c }}</strong></li>{% endfor %}
+        {% for c in outcome.classes_updated %}<li class="list-group-item"><i class="bi bi-arrow-repeat text-primary"></i> Update: <strong>{{ c }}</strong></li>{% endfor %}
+        {% if outcome.subjects_new %}<li class="list-group-item">{{ outcome.subjects_new }} new subject{% if outcome.subjects_new != 1 %}s{% endif %}</li>{% endif %}
+        <li class="list-group-item">{{ outcome.students_new }} new student{% if outcome.students_new != 1 %}s{% endif %}</li>
+        <li class="list-group-item">{{ outcome.assessments_new }} new assessment{% if outcome.assessments_new != 1 %}s{% endif %}</li>
+        <li class="list-group-item">{{ outcome.marks_changed }} mark{% if outcome.marks_changed != 1 %}s{% endif %} added or changed</li>
+      </ul>
+      <div class="card-body">
+        {% if changes > 0 %}
+        <form method="post" action="/import/sheet/{{ id }}" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Import{% if outcome.problems %} (skipping the cells listed){% endif %}</button>
+        </form>
+        {% else %}
+        <p class="mb-2">Everything in this spreadsheet is already in Gradebook.</p>
+        {% endif %}
+        <a class="btn btn-link" href="/import">Cancel</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    {% if outcome.problems %}
+    <div class="card border-warning">
+      <div class="card-header fw-semibold"><i class="bi bi-exclamation-triangle text-warning"></i> {{ outcome.problems|length }} thing{% if outcome.problems|length != 1 %}s{% endif %} to check</div>
+      <div class="card-body small text-muted pb-0">Fix these in the spreadsheet and upload it again, or import now and fix them in Gradebook. Cells listed here are skipped.</div>
+      <table class="table table-sm align-middle mb-0">
+        <thead><tr><th>Sheet</th><th>Cell</th><th>What's wrong</th></tr></thead>
+        <tbody>
+          {% for p in outcome.problems %}
+          <tr><td class="text-nowrap">{{ p.sheet }}</td><td><code>{{ p.cell }}</code></td><td>{{ p.message }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="alert alert-success"><i class="bi bi-check-circle"></i> No problems found.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

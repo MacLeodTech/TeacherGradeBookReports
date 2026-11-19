@@ -1,0 +1,66 @@
+name: Release local binaries
+
+# On a version tag, build `gradebook` for teachers' own computers and attach
+# the binaries to the GitHub release. The repo is public: GitHub-hosted runners.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, name: windows-x64, exe: gradebook.exe }
+          - { os: macos-latest, target: aarch64-apple-darwin, name: macos-arm64, exe: gradebook }
+          - { os: macos-latest, target: x86_64-apple-darwin, name: macos-x64, exe: gradebook }
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, name: linux-x64, exe: gradebook }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Install Rust
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal --target ${{ matrix.target }}
+          rustup default stable
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2.9.3
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Build
+        shell: bash
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p dist
+          bin="target/${{ matrix.target }}/release/${{ matrix.exe }}"
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            7z a "dist/gradebook-${{ matrix.name }}.zip" "./$bin"
+          else
+            strip "$bin" || true
+            tar -C "$(dirname "$bin")" -czf "dist/gradebook-${{ matrix.name }}.tar.gz" "${{ matrix.exe }}"
+          fi
+
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 \
+            || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes \
+            || true   # another matrix job may have just created it
+          gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+    permissions:
+      contents: write

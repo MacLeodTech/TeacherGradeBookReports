@@ -1,0 +1,55 @@
+[package]
+name = "gradebook"
+version = "2.0.0"
+edition = "2024"
+description = "Self-hosted teacher gradebook with professional PDF report generation"
+license = "MIT"
+publish = false
+
+[profile.release]
+lto = "thin"
+codegen-units = 4
+strip = true
+
+[profile.dev.package."*"]
+opt-level = 2
+
+[dependencies]
+anyhow = "1.0.104"
+argon2 = "0.6.0"
+axum = { version = "0.8", features = ["multipart", "macros"] }
+axum-extra = { version = "0.12.6", features = ["cookie"] }
+base64 = "0.23.1"
+calamine = "0.38.0"
+chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
+deunicode = "1.6.2"
+dirs = "7.0.0"
+hex = "0.4.3"
+hmac = "0.13.0"
+minijinja = { version = "3.1.0", features = ["urlencode", "serde"] }
+open = "5.4.5"
+openidconnect = { version = "4.1.0", default-features = false, features = ["reqwest", "rustls-tls", "timing-resistant-secret-traits"] }
+pbkdf2 = "0.13.0"
+percent-encoding = "2.3.2"
+rand = "0.10.4"
+regex-lite = "0.1.9"
+rusqlite = { version = "0.43.0", features = ["bundled", "hooks"] }
+rust_xlsxwriter = "0.103.0"
+scrypt = "0.12.0"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+sha2 = "0.11.1"
+thiserror = "2.0.21"
+tokio = { version = "1", features = ["full"] }
+totp-rs = { version = "6.0.0", features = ["qr", "gen_secret", "otpauth"] }
+tower = "0.5"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+typst = "0.15"
+typst-as-lib = "0.18.0"
+typst-layout = "0.15"
+typst-pdf = "0.15.1"
+zip = { version = "9.7.3", default-features = false, features = ["deflate"] }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }

@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% from "macros.html" import grade %}
+{% block title %}{{ full_name }}{% endblock %}
+{% block container %}container-fluid px-lg-4{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+  <a class="btn btn-sm btn-outline-secondary" href="/classes/{{ class.id }}"><i class="bi bi-arrow-left"></i> {{ class.name }}</a>
+  <h1 class="h3 mb-0 mx-2">{{ full_name }}</h1>
+  {% if student.student_number %}<span class="text-muted">#{{ student.student_number }}</span>{% endif %}
+  <div class="ms-auto btn-group">
+    {% if prev %}<a class="btn btn-sm btn-outline-secondary" href="/classes/{{ class.id }}/students/{{ prev[0] }}" title="{{ prev[1] }}"><i class="bi bi-chevron-left"></i> Previous</a>{% endif %}
+    {% if next %}<a class="btn btn-sm btn-outline-secondary" href="/classes/{{ class.id }}/students/{{ next[0] }}" title="{{ next[1] }}">Next <i class="bi bi-chevron-right"></i></a>{% endif %}
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-xl-7">
+    {% for s in subjects %}
+    <div class="card mb-4" id="subject-{{ s.subject.id }}">
+      <div class="card-header d-flex align-items-center gap-2">
+        <span class="fw-semibold">{{ s.subject.name }}</span>
+        <span class="ms-auto">{{ grade(s.result.overall, s.label, s.color) }}</span>
+        {% if s.result.overridden %}<span class="badge text-bg-warning" title="Calculated: {{ s.result.calculated|pct }} {{ s.calc_label or '' }}">Set by you</span>{% endif %}
+      </div>
+      <div class="card-body">
+        <div class="small text-muted mb-2">
+          {{ s.result.submitted }} of {{ s.result.expected }} assessed
+          {% if s.result.missing %} · <span class="text-danger">{{ s.result.missing }} missing</span>{% endif %}
+          {% if s.result.pending %} · {{ s.result.pending }} still to mark{% endif %}
+          {% if s.result.completion_total %} · {{ s.result.completion_done }}/{{ s.result.completion_total }} completed{% endif %}
+        </div>
+        {% for w in s.result.warnings %}<div class="alert alert-warning py-1 px-2 small">{{ w }}</div>{% endfor %}
+        {% if s.cats %}
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          {% for c in s.cats %}
+          <div class="cat-chip"><div class="small text-muted">{{ c.name }} · {{ c.weight }}%</div>{{ grade(c.avg, c.label, c.color) }}</div>
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% if s.rows %}
+        <details {% if subjects|length == 1 %}open{% endif %}>
+          <summary class="small mb-2">Assessments ({{ s.rows|length }})</summary>
+          <table class="table table-sm align-middle small">
+            <thead><tr><th>Assessment</th><th>Unit</th>{% if s.cats %}<th>Category</th>{% endif %}<th class="text-end">Mark</th><th class="text-end">%</th></tr></thead>
+            <tbody>
+              {% for r in s.rows %}
+              <tr class="{% if r.status %}st-row-{{ r.status }}{% endif %}">
+                <td>{{ r.name }}{% if r.formative and r.kind == "scored" %} <span class="badge text-bg-light border">formative</span>{% endif %}</td>
+                <td class="text-muted">{{ r.unit }}</td>
+                {% if s.cats %}<td class="text-muted">{{ r.category or "—" }}</td>{% endif %}
+                <td class="text-end">
+                  {% if r.kind == "completion" %}{% if r.status == "marked" %}✓{% elif r.text %}{{ r.text }}{% endif %}
+                  {% elif r.text %}{{ r.text }}{% if r.status == "marked" or r.status == "late" %} / {{ r.out_of }}{% endif %}{% endif %}
+                </td>
+                <td class="text-end">{% if r.pct is not none %}<span style="color: {{ r.color }}">{{ r.pct|pct }}</span>{% endif %}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </details>
+        {% endif %}
+
+        <form method="post" action="/classes/{{ class.id }}/students/{{ student.id }}/comment" class="mt-3">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <input type="hidden" name="subject_id" value="{{ s.subject.id }}">
+          <div class="d-flex align-items-end mb-1">
+            <label class="form-label mb-0 fw-semibold" for="c{{ s.subject.id }}">Comment</label>
+            {% if bank %}
+            <div class="dropdown ms-auto">
+              <button type="button" class="btn btn-sm btn-link dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-chat-square-quote"></i> Comment bank</button>
+              <div class="dropdown-menu dropdown-menu-end bank-menu">
+                {% for tag, body in bank %}
+                {% if loop.first or bank[loop.index0 - 1][0] != tag %}<h6 class="dropdown-header">{{ tag or "Comments" }}</h6>{% endif %}
+                <button class="dropdown-item small text-wrap" data-insert="#c{{ s.subject.id }}" data-text="{{ body }}">{{ body }}</button>
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
+          </div>
+          <textarea class="form-control mb-2" id="c{{ s.subject.id }}" name="comment" rows="4" maxlength="4000" data-count {% if class.archived %}disabled{% endif %}>{{ s.comment }}</textarea>
+          <label class="form-label fw-semibold" for="n{{ s.subject.id }}">Next steps</label>
+          <textarea class="form-control mb-2" id="n{{ s.subject.id }}" name="next_steps" rows="2" maxlength="4000" {% if class.archived %}disabled{% endif %}>{{ s.next_steps }}</textarea>
+          {% if not class.archived %}<button class="btn btn-sm btn-primary">Save comment</button>{% endif %}
+        </form>
+
+        {% if not class.archived %}
+        <details class="mt-3">
+          <summary class="small">Set the final grade yourself{% if s.result.overridden %} (currently {{ s.override_pct }}%){% endif %}</summary>
+          <form method="post" action="/classes/{{ class.id }}/students/{{ student.id }}/override" class="row g-2 mt-1">
+            <input type="hidden" name="csrf_token" value="{{ csrf }}">
+            <input type="hidden" name="subject_id" value="{{ s.subject.id }}">
+            <div class="col-3"><input class="form-control form-control-sm" name="pct" value="{{ s.override_pct or '' }}" placeholder="%" inputmode="decimal"></div>
+            <div class="col-9"><input class="form-control form-control-sm" name="reason" value="{{ s.override_reason or '' }}" placeholder="Why (for your records, e.g. most recent evidence)"></div>
+            <div class="col-12">
+              <button class="btn btn-sm btn-outline-primary">Use this grade</button>
+              {% if s.result.overridden %}<button class="btn btn-sm btn-link" name="clear" value="1">Go back to the calculated grade ({{ s.result.calculated|pct }})</button>{% endif %}
+            </div>
+          </form>
+        </details>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+
+    <div class="card mb-4" id="skills">
+      <div class="card-header fw-semibold">Learning skills &amp; work habits</div>
+      <div class="card-body">
+        <form method="post" action="/classes/{{ class.id }}/students/{{ student.id }}/skills">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <div class="row g-2">
+            {% for k in skill_names %}
+            <div class="col-md-6 d-flex align-items-center gap-2">
+              <label class="flex-grow-1 small">{{ k }}</label>
+              <div class="btn-group btn-group-sm" role="group">
+                {% for v, t in [("E", "Excellent"), ("G", "Good"), ("S", "Satisfactory"), ("N", "Needs improvement"), ("", "—")] %}
+                <input type="radio" class="btn-check" name="skill_{{ k }}" id="sk{{ loop.index }}{{ k|replace(' ', '') }}" value="{{ v }}" {% if (skills[k] or "") == v %}checked{% endif %} {% if class.archived %}disabled{% endif %}>
+                <label class="btn btn-outline-secondary" for="sk{{ loop.index }}{{ k|replace(' ', '') }}" title="{{ t }}">{{ v or "—" }}</label>
+                {% endfor %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% if not class.archived %}<button class="btn btn-sm btn-primary mt-3">Save skills</button>{% endif %}
+        </form>
+      </div>
+    </div>
+
+    <details class="card mb-4">
+      <summary class="card-header">Student details</summary>
+      <div class="card-body">
+        <form method="post" action="/classes/{{ class.id }}/students/{{ student.id }}/details" class="row g-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <div class="col-md-4"><label class="form-label small">First name</label><input class="form-control form-control-sm" name="first_name" value="{{ student.first_name }}" required></div>
+          <div class="col-md-4"><label class="form-label small">Last name</label><input class="form-control form-control-sm" name="last_name" value="{{ student.last_name }}"></div>
+          <div class="col-md-4"><label class="form-label small">Preferred name</label><input class="form-control form-control-sm" name="preferred_name" value="{{ student.preferred_name }}"></div>
+          <div class="col-md-4"><label class="form-label small">Student #</label><input class="form-control form-control-sm" name="student_number" value="{{ student.student_number }}"></div>
+          <div class="col-md-4"><label class="form-label small">Pronouns (for comment bank)</label>
+            <select class="form-select form-select-sm" name="pronouns">
+              {% for v, t in [("they", "they/them"), ("she", "she/her"), ("he", "he/him")] %}<option value="{{ v }}" {% if student.pronouns == v %}selected{% endif %}>{{ t }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4 d-flex align-items-end"><button class="btn btn-sm btn-primary">Save details</button></div>
+        </form>
+      </div>
+    </details>
+  </div>
+
+  <div class="col-xl-5">
+    <div class="card sticky-xl-top report-panel">
+      <div class="card-header fw-semibold"><i class="bi bi-file-earmark-pdf"></i> Report</div>
+      <div class="card-body">
+        <form method="post" action="/classes/{{ class.id }}/students/{{ student.id }}/report.pdf" id="report-form" data-preview="/classes/{{ class.id }}/students/{{ student.id }}/report.pdf">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <div class="row g-2 mb-2">
+            <div class="col-sm-6">
+              <select class="form-select form-select-sm" name="report_type">
+                {% for t in report_types %}<option {% if t == defaults.report_type %}selected{% endif %}>{{ t }}</option>{% endfor %}
+              </select>
+            </div>
+            {% if others %}
+            <div class="col-sm-6"><div class="form-check small"><input class="form-check-input" type="checkbox" name="combined" value="1" id="combined"><label class="form-check-label" for="combined">Include {{ others|map(attribute="name")|join(", ") }}</label></div></div>
+            {% endif %}
+          </div>
+          <div class="d-flex flex-wrap gap-3 small mb-3">
+            {% for k, t in [("show_categories", "Category breakdown"), ("show_assessments", "Assessments"), ("show_missing", "Missing work"), ("show_comments", "Comments"), ("show_skills", "Learning skills"), ("show_legend", "Grade legend"), ("show_signature", "Signature lines")] %}
+            <div class="form-check"><input class="form-check-input" type="checkbox" name="{{ k }}" value="1" id="{{ k }}" {% if defaults[k] %}checked{% endif %}><label class="form-check-label" for="{{ k }}">{{ t }}</label></div>
+            {% endfor %}
+          </div>
+          <button class="btn btn-primary"><i class="bi bi-download"></i> Download PDF</button>
+          <button type="button" class="btn btn-outline-secondary" data-refresh-preview><i class="bi bi-arrow-clockwise"></i> Refresh preview</button>
+        </form>
+        {% if runs %}
+        <div class="small text-muted mt-3">Last generated:
+          {% for r in runs %}{{ r.at }} ({{ r.kind }}{% if r.overall is not none %}, {{ r.overall|pct }}{% endif %}){% if not loop.last %}; {% endif %}{% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      <iframe id="report-preview" class="report-preview" title="Report preview" src="/classes/{{ class.id }}/students/{{ student.id }}/report.pdf#view=FitH"></iframe>
+    </div>
+  </div>
+</div>
+{% endblock %}

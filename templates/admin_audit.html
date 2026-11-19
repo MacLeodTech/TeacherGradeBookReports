@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Audit log{% endblock %}
+{% block content %}
+<h1 class="h3 mb-1">Audit log</h1>
+<p class="text-muted small">Sign-ins, workbook saves and opens, report downloads and account changes. The latest 500 are shown; entries are kept for {{ keep_days }} days. Student names are never recorded.</p>
+<div class="card">
+  <table class="table table-sm align-middle mb-0">
+    <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Detail</th><th>Address</th></tr></thead>
+    <tbody>
+      {% for e in entries %}
+      <tr><td class="small text-nowrap">{{ e.at }}</td><td>{{ e.username or "—" }}</td><td><code>{{ e.action }}</code></td><td class="small">{{ e.detail }}</td><td class="small text-muted">{{ e.ip }}</td></tr>
+      {% else %}
+      <tr><td colspan="5" class="text-muted text-center py-4">Nothing yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

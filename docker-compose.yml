@@ -1,37 +1,27 @@
 services:
   app:
     build: .
+    # Or use the published image:
+    # image: ghcr.io/macleodtech/teachergradebookreports:latest
     container_name: grade-reports
     ports:
       - "8000:8000"
     volumes:
+      # Holds gradebook.db and backups/. With STORAGE=memory (the default) that
+      # is only accounts, settings, comment banks and the audit log; with
+      # STORAGE=persistent it also holds classes, students and marks.
+      # Upgrading from the Python version: keep the same volume; accounts in
+      # the old users.db are imported automatically on first start.
       - grade-reports-data:/data
+    env_file: .env
     environment:
-      # Override these to set the initial admin account.
-      # The admin is only created once (on first boot when the DB is empty).
-      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
-      ADMIN_SCHOOL:   ${ADMIN_SCHOOL:-Westfield Academy}
-      # Set a stable secret key so sessions survive container restarts.
-      SECRET_KEY:     ${SECRET_KEY:-change-me-in-production}
-      # Increase for higher concurrency.
-      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-2}
-      # Set to false when running over plain HTTP (e.g. local dev).
-      COOKIE_SECURE: ${COOKIE_SECURE:-true}
-      # Set the container timezone so generated dates match local time.
       TZ: ${TZ:-America/Toronto}
-    # ── Security hardening ───────────────────────────────────────────────────
-    # Prevent the process from gaining new privileges via setuid/setgid binaries
     security_opt:
       - no-new-privileges:true
-    # Drop every Linux capability – the app is pure Python/HTTP, needs none
     cap_drop:
       - ALL
-    # Mount the container root filesystem read-only; writable areas are
-    # provided explicitly via tmpfs (uploads/reports) and the named volume (DB)
     read_only: true
     tmpfs:
-      # /tmp is used by UPLOAD_ROOT (/tmp/reportgen) and gunicorn's worker files
       - /tmp:mode=1777,size=256m
     restart: unless-stopped
 

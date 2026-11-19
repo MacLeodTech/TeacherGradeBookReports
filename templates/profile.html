@@ -1,262 +1,77 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Profile &middot; Grade Report Generator</title>
-    <link href="/static/vendor/bootstrap.min.css" rel="stylesheet" />
-    <link href="/static/vendor/bootstrap-icons.min.css" rel="stylesheet" />
-    <meta name="csrf-token" content="{{ csrf_token() }}" />
-    <style>
-      :root {
-        --scdsb-dark: #003f5a;
-        --scdsb-mid: #00476c;
-        --scdsb-light: #b1d2e1;
-        --scdsb-pale: #dff0f6;
-      }
-      body {
-        background: #f0f4f8;
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-      }
-      .site-header {
-        background: var(--scdsb-dark);
-        border-bottom: 4px solid var(--scdsb-light);
-      }
-      main {
-        flex: 1;
-      }
-      .btn-save {
-        background: var(--scdsb-dark);
-        border-color: var(--scdsb-dark);
-        color: #fff;
-        font-weight: 600;
-      }
-      .btn-save:hover {
-        background: var(--scdsb-mid);
-        border-color: var(--scdsb-mid);
-        color: #fff;
-      }
-      .form-control:focus {
-        border-color: var(--scdsb-light);
-        box-shadow: 0 0 0 0.2rem rgba(177, 210, 225, 0.4);
-      }
-      .section-card {
-        background: #fff;
-        border-radius: 10px;
-        border: 1px solid #dde3ea;
-      }
-      footer {
-        color: #999;
-        font-size: 0.78rem;
-      }
-    </style>
-  </head>
-  <body>
-    <nav class="navbar site-header py-2">
-      <div class="container d-flex align-items-center gap-3">
-        <a
-          href="{{ url_for('index') }}"
-          class="d-flex align-items-center gap-2 text-decoration-none"
-        >
-          <i class="bi bi-mortarboard-fill fs-3 text-white opacity-75"></i>
-          <div>
-            <div
-              class="text-white fw-bold"
-              style="font-size: 1.25rem; line-height: 1.1"
-            >
-              Grade Report Generator
-            </div>
-            <div style="color: var(--scdsb-light); font-size: 0.8rem">
-              Simcoe County District School Board
-            </div>
-          </div>
-        </a>
-        <div class="ms-auto d-flex align-items-center gap-2">
-          <a href="{{ url_for('index') }}" class="btn btn-sm btn-outline-light">
-            <i class="bi bi-cloud-upload me-1"></i>Upload
-          </a>
-          {% if current_user.is_admin %}
-          <a
-            href="{{ url_for('admin_users') }}"
-            class="btn btn-sm btn-outline-light"
-          >
-            <i class="bi bi-people me-1"></i>Users
-          </a>
-          {% endif %}
-          <a
-            href="{{ url_for('profile') }}"
-            class="btn btn-sm btn-outline-light active"
-            aria-current="page"
-          >
-            <i class="bi bi-person-circle me-1"></i>{{ current_user.username }}
-          </a>
-          <a
-            href="{{ url_for('logout') }}"
-            class="btn btn-sm"
-            style="
-              background: var(--scdsb-light);
-              color: var(--scdsb-dark);
-              font-weight: 600;
-            "
-          >
-            <i class="bi bi-box-arrow-right me-1"></i>Logout
-          </a>
-        </div>
+{% extends "base.html" %}
+{% block title %}Profile{% endblock %}
+{% block content %}
+<h1 class="h3 mb-4">{% if user.external %}Profile{% else %}Profile &amp; security{% endif %}</h1>
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card mb-4">
+      <div class="card-header fw-semibold">Your details</div>
+      <div class="card-body">
+        <form method="post" action="/profile">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <div class="mb-3"><label class="form-label">Username</label><input class="form-control" value="{{ user.username }}" disabled></div>
+          <div class="mb-3"><label class="form-label">Name (as on reports)</label><input class="form-control" name="full_name" value="{{ user.full_name }}"></div>
+          <div class="mb-3"><label class="form-label">School</label><input class="form-control" name="school" value="{{ user.school }}"></div>
+          <div class="mb-3"><label class="form-label">Email for parents</label><input class="form-control" type="email" name="email" value="{{ user.email }}"><div class="form-text">Shown in the "questions? contact me" line on reports. Leave blank to hide.</div></div>
+          <button class="btn btn-primary">Save</button>
+        </form>
       </div>
-    </nav>
-
-    <main class="container py-5" style="max-width: 600px">
-      <h2 class="fw-bold mb-1" style="color: var(--scdsb-dark)">
-        Profile Settings
-      </h2>
-      <p class="text-muted mb-4">
-        Changes take effect immediately and apply to all reports generated this
-        session.
-      </p>
-
-      {% with messages = get_flashed_messages() %} {% if messages %} {% for msg
-      in messages %}
-      <div
-        class="alert alert-info alert-dismissible fade show d-flex align-items-start gap-2"
-        role="alert"
-      >
-        <i class="bi bi-info-circle-fill mt-1 flex-shrink-0"></i>
-        <span>{{ msg }}</span>
-        <button
-          type="button"
-          class="btn-close ms-auto"
-          data-bs-dismiss="alert"
-        ></button>
+    </div>
+    {% if not user.external %}
+    <div class="card">
+      <div class="card-header fw-semibold">Change password</div>
+      <div class="card-body">
+        <form method="post" action="/profile/password">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <div class="mb-3"><label class="form-label">Current password</label><input class="form-control" type="password" name="current_password" autocomplete="current-password" required></div>
+          <div class="mb-3"><label class="form-label">New password</label><input class="form-control" type="password" name="new_password" autocomplete="new-password" minlength="10" required><div class="form-text">At least 10 characters, with a letter and a number.</div></div>
+          <div class="mb-3"><label class="form-label">New password again</label><input class="form-control" type="password" name="confirm_password" autocomplete="new-password" required></div>
+          <button class="btn btn-primary">Change password</button>
+        </form>
       </div>
-      {% endfor %} {% endif %} {% endwith %}
-
-      <form method="post" action="{{ url_for('profile') }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-
-        <!-- Teacher information -->
-        <div class="section-card p-4 mb-4">
-          <h5 class="fw-bold mb-1" style="color: var(--scdsb-dark)">
-            <i class="bi bi-person-badge me-2"></i>Teacher Information
-          </h5>
-          <p class="text-muted small mb-3">
-            Your name and email will appear in the contact line at the bottom of
-            every generated PDF report.
-          </p>
-          <div class="mb-3">
-            <label
-              for="full_name"
-              class="form-label fw-semibold"
-              style="color: var(--scdsb-dark)"
-              >Full Name</label
-            >
-            <input
-              type="text"
-              class="form-control"
-              id="full_name"
-              name="full_name"
-              value="{{ current_user.full_name }}"
-              maxlength="120"
-              placeholder="e.g. Jane Smith"
-            />
-          </div>
-          <div class="mb-0">
-            <label
-              for="email"
-              class="form-label fw-semibold"
-              style="color: var(--scdsb-dark)"
-              >School Email</label
-            >
-            <input
-              type="email"
-              class="form-control"
-              id="email"
-              name="email"
-              value="{{ current_user.email }}"
-              maxlength="254"
-              placeholder="e.g. jsmith@school.edu"
-            />
-          </div>
+    </div>
+    {% endif %}
+  </div>
+  <div class="col-lg-6">
+    {% if not user.external %}
+    <div class="card mb-4">
+      <div class="card-header fw-semibold"><i class="bi bi-shield-lock"></i> Two-step verification</div>
+      <div class="card-body">
+        {% if user.totp_enabled %}
+        <p><span class="badge text-bg-success">On</span> You'll be asked for a code from your authenticator app when you sign in.</p>
+        <form method="post" action="/profile/totp/disable" class="row g-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <div class="col-8"><input class="form-control" type="password" name="current_password" placeholder="Your password" required></div>
+          <div class="col-4"><button class="btn btn-outline-danger w-100">Turn off</button></div>
+        </form>
+        {% else %}
+        <p>Recommended: student marks are personal information. Scan this with an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password…), then enter the code it shows.</p>
+        <div class="d-flex gap-3 align-items-center mb-3">
+          {% if totp_qr %}<img src="data:image/png;base64,{{ totp_qr }}" alt="QR code" class="totp-qr">{% endif %}
+          <div class="small text-muted">Can't scan? Enter this key:<br><code class="user-select-all">{{ totp_secret }}</code></div>
         </div>
-
-        <!-- School name -->
-        <div class="section-card p-4 mb-4">
-          <h5 class="fw-bold mb-1" style="color: var(--scdsb-dark)">
-            <i class="bi bi-building me-2"></i>School Name
-          </h5>
-          <p class="text-muted small mb-3">
-            This name appears in the header and footer of every generated PDF
-            report.
-          </p>
-          <label
-            for="school"
-            class="form-label fw-semibold"
-            style="color: var(--scdsb-dark)"
-            >School</label
-          >
-          <input
-            type="text"
-            class="form-control"
-            id="school"
-            name="school"
-            value="{{ current_user.school }}"
-            maxlength="120"
-          />
-        </div>
-
-        <!-- Change password -->
-        <div class="section-card p-4 mb-4">
-          <h5 class="fw-bold mb-1" style="color: var(--scdsb-dark)">
-            <i class="bi bi-lock me-2"></i>Change Password
-          </h5>
-          <p class="text-muted small mb-3">
-            Leave blank to keep your current password. Minimum 8 characters.
-          </p>
-          <div class="mb-3">
-            <label
-              for="new_password"
-              class="form-label fw-semibold"
-              style="color: var(--scdsb-dark)"
-              >New Password</label
-            >
-            <input
-              type="password"
-              class="form-control"
-              id="new_password"
-              name="new_password"
-              autocomplete="new-password"
-            />
-          </div>
-          <div class="mb-0">
-            <label
-              for="confirm_password"
-              class="form-label fw-semibold"
-              style="color: var(--scdsb-dark)"
-              >Confirm Password</label
-            >
-            <input
-              type="password"
-              class="form-control"
-              id="confirm_password"
-              name="confirm_password"
-              autocomplete="new-password"
-            />
-          </div>
-        </div>
-
-        <div class="d-grid">
-          <button type="submit" class="btn btn-save btn-lg">
-            <i class="bi bi-floppy me-2"></i>Save Changes
-          </button>
-        </div>
-      </form>
-    </main>
-
-    <footer class="text-center py-3">
-      Grade Report Generator &middot; Simcoe County District School Board
-    </footer>
-
-    <script src="/static/vendor/bootstrap.bundle.min.js"></script>
-  </body>
-</html>
+        <form method="post" action="/profile/totp" class="row g-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <input type="hidden" name="secret" value="{{ totp_secret }}">
+          <div class="col-8"><input class="form-control" name="code" inputmode="numeric" placeholder="6-digit code" autocomplete="one-time-code" required></div>
+          <div class="col-4"><button class="btn btn-primary w-100">Turn on</button></div>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+    {% if not local %}
+    <div class="card">
+      <div class="card-header fw-semibold">Sessions</div>
+      <div class="card-body">
+        <p class="small text-muted">Forgot to sign out on a school computer? This signs you out everywhere else.</p>
+        <form method="post" action="/profile/logout-everywhere">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <button class="btn btn-outline-secondary">Sign out other devices</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

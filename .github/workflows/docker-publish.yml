@@ -12,8 +12,39 @@ on:
   workflow_dispatch:
 
 jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    # The repo is public: GitHub-hosted runners only.
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Linux for the Docker image; Windows and macOS for `gradebook local`.
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Install Rust
+        shell: bash
+        run: rustup toolchain install stable --profile minimal --component clippy,rustfmt && rustup default stable
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2.9.3
+
+      - name: Format
+        if: runner.os == 'Linux'
+        run: cargo fmt --check
+
+      - name: Lint
+        run: cargo clippy --locked --all-targets -- -D clippy::correctness -D clippy::suspicious
+
+      - name: Test
+        run: cargo test --locked
+
   build-and-push:
     name: Build and Push to ghcr.io
+    needs: test
     runs-on: ubuntu-latest
 
     permissions:

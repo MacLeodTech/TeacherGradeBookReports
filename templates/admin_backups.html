@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Backups{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">Backups</h1>
+{% if dir %}
+<p class="text-muted">A copy of the whole database is saved to <code>{{ dir }}</code> once a day; the newest {{ keep }} are kept. Copy that folder somewhere off this server too.</p>
+<div class="d-flex gap-2 mb-3">
+  <form method="post" action="/admin/backups"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn btn-outline-primary">Back up now</button></form>
+  <a class="btn btn-primary" href="/admin/backups/download"><i class="bi bi-download"></i> Download a fresh copy</a>
+</div>
+<ul class="list-group">
+  {% for b in backups %}<li class="list-group-item d-flex"><code>{{ b.name }}</code><span class="ms-auto text-muted small">{{ b.size }}</span></li>
+  {% else %}<li class="list-group-item text-muted">No backups yet. The first one is made within an hour of starting.</li>{% endfor %}
+</ul>
+{% else %}
+<div class="alert alert-warning">Automatic backups are turned off (<code>BACKUP_DIR=off</code>).</div>
+<a class="btn btn-primary" href="/admin/backups/download"><i class="bi bi-download"></i> Download a copy of the database</a>
+{% endif %}
+<p class="small text-muted mt-3">To restore: stop the app, replace <code>gradebook.db</code> with a backup file, and start it again.</p>
+{% endblock %}

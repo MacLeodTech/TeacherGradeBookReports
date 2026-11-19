@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Import · columns{% endblock %}
+{% block container %}container-fluid px-lg-4{% endblock %}
+{% block content %}
+<h1 class="h3">Import <small class="text-muted">{{ filename }}</small></h1>
+<p class="text-muted">{{ rows }} row{% if rows != 1 %}s{% endif %} found. Check what each column is, choose where it goes, then preview.</p>
+<form method="post" action="/import/{{ id }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  <div class="card mb-3">
+    <div class="card-header fw-semibold">1. Columns</div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0 import-map">
+        <thead><tr><th>Column</th><th style="width:16rem">Is…</th><th>First rows</th></tr></thead>
+        <tbody>
+          {% for c in columns %}
+          <tr>
+            <td class="fw-semibold">{{ c.header or "(no header)" }}</td>
+            <td>
+              <select class="form-select form-select-sm" name="role_{{ c.index }}">
+                {% for o in role_options %}<option value="{{ o.value }}" {% if o.value == c.role %}selected{% endif %}>{{ o.label }}</option>{% endfor %}
+              </select>
+            </td>
+            <td class="small text-muted text-truncate samples">{{ c.samples|reject("equalto", "")|join(" · ") }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-6">
+      <div class="card h-100">
+        <div class="card-header fw-semibold">2. Where should it go?</div>
+        <div class="card-body">
+          <select class="form-select mb-3" name="target">
+            {% for cs in class_subjects %}<option value="{{ cs.subject_id }}" {% if preselect == cs.class_id %}selected{% endif %}>Update: {{ cs.label }}</option>{% endfor %}
+            <option value="new" {% if not preselect %}selected{% endif %}>Create a new class</option>
+          </select>
+          <div class="row g-2" data-new-class>
+            <div class="col-md-6"><label class="form-label small">New class name</label><input class="form-control form-control-sm" name="new_class_name" value="{{ suggested_name }}"></div>
+            <div class="col-md-3"><label class="form-label small">Course code</label><input class="form-control form-control-sm" name="new_class_code"></div>
+            {% if secondary %}<div class="col-md-3"><label class="form-label small">Period</label><select class="form-select form-select-sm" name="new_class_period"><option value="">—</option>{% for p in [1,2,3,4] %}<option>{{ p }}</option>{% endfor %}</select></div>{% endif %}
+          </div>
+          {% if not term %}<div class="alert alert-warning mt-3 small">You don't have a current term yet. <a href="/terms">Create one</a> first.</div>{% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card h-100">
+        <div class="card-header fw-semibold">3. How to read the marks</div>
+        <div class="card-body small">
+          <div class="mb-2">Empty cells:
+            <div class="form-check"><input class="form-check-input" type="radio" name="blank_as" value="skip" id="b1" checked><label class="form-check-label" for="b1">leave blank (not handed in yet / not marked)</label></div>
+            <div class="form-check"><input class="form-check-input" type="radio" name="blank_as" value="missing" id="b2"><label class="form-check-label" for="b2">mark as missing</label></div>
+          </div>
+          <div class="mb-2">A mark of 0:
+            <div class="form-check"><input class="form-check-input" type="radio" name="zero_as" value="zero" id="z1" checked><label class="form-check-label" for="z1">is a real zero</label></div>
+            <div class="form-check"><input class="form-check-input" type="radio" name="zero_as" value="missing" id="z2" {% if legacy_like %}checked{% endif %}><label class="form-check-label" for="z2">means "not handed in" (how the old upload worked)</label></div>
+          </div>
+          {% if has_final %}
+          <div class="form-check"><input class="form-check-input" type="checkbox" name="final_as_override" value="1" id="fo"><label class="form-check-label" for="fo">Use the sheet's final mark as each student's grade (instead of the gradebook's calculation)</label></div>
+          {% endif %}
+          {% if legacy_like %}<div class="alert alert-info mt-2 mb-0 py-1 px-2">Marks between 0 and 1 look like decimals (0.85) and will be read as percentages (85%).</div>{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="mt-3"><button class="btn btn-primary btn-lg">Preview changes</button> <a class="btn btn-link" href="/import">Start over</a></div>
+</form>
+{% endblock %}

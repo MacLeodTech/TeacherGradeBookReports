@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}New class{% endblock %}
+{% block content %}
+<h1 class="h3 mb-1">New class</h1>
+<p class="text-muted">In {{ term.name }}.</p>
+<form method="post" action="/classes/new" class="card card-body">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  <div class="row g-3">
+    {% if settings.mode == "elementary" %}
+    <div class="col-md-5"><label class="form-label">Class name</label><input class="form-control" name="name" placeholder="Grade 3 – Room 12" required autofocus></div>
+    <div class="col-md-3"><label class="form-label">Grade</label><input class="form-control" name="grade_level" placeholder="3"></div>
+    <div class="col-md-4"><label class="form-label">Room</label><input class="form-control" name="room"></div>
+    <div class="col-md-6">
+      <label class="form-label">Subjects (one per line)</label>
+      <textarea class="form-control" name="subjects" rows="7">Language
+Mathematics
+Science and Technology
+Social Studies
+The Arts
+Health and Physical Education</textarea>
+    </div>
+    <div class="col-md-6">
+      <div class="form-check mt-4"><input class="form-check-input" type="checkbox" name="letter_grades" value="1" id="lg"><label class="form-check-label" for="lg">Report letter grades instead of percentages (typical for grades 1–6)</label></div>
+      <label class="form-label mt-3">Weighting within each subject</label>
+      <select class="form-select" name="preset">
+        <option value="none">Simple average of all assessments</option>
+        <option value="ontario-ktca">Ontario achievement chart (K/U, Thinking, Communication, Application)</option>
+      </select>
+    </div>
+    {% else %}
+    <div class="col-md-5"><label class="form-label">Course name</label><input class="form-control" name="name" placeholder="{% if settings.mode == 'university' %}Intro to Psychology{% else %}Grade 11 Biology{% endif %}" required autofocus></div>
+    <div class="col-md-3"><label class="form-label">Course code</label><input class="form-control" name="course_code" placeholder="{% if settings.mode == 'university' %}PSYC 101{% else %}SBI3U{% endif %}"></div>
+    {% if settings.mode == "secondary" %}
+    <div class="col-md-2">
+      <label class="form-label">Period</label>
+      <select class="form-select" name="period">
+        <option value="">—</option>
+        {% for p in free_periods %}<option value="{{ p }}" {% if loop.first %}selected{% endif %}>Period {{ p }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2"><label class="form-label">Room</label><input class="form-control" name="room"></div>
+    {% else %}
+    <div class="col-md-4"><label class="form-label">Section / room</label><input class="form-control" name="room"></div>
+    {% endif %}
+    <div class="col-md-8">
+      <label class="form-label">How is the final grade weighted?</label>
+      <select class="form-select" name="preset">
+        {% if settings.mode == "secondary" %}
+        <option value="ontario-secondary">Ontario 70/30 with achievement categories (K/U, T, C, A = 70%, final = 30%)</option>
+        <option value="ontario-70-30">Ontario 70/30 (term work 70%, final evaluation 30%)</option>
+        <option value="ontario-ktca">Achievement categories only (K/U, T, C, A)</option>
+        {% else %}
+        <option value="university">Assignments / midterm / final exam</option>
+        {% endif %}
+        <option value="none">Simple average of all assessments</option>
+      </select>
+      <div class="form-text">You can change the categories and weights at any time in the class setup.</div>
+    </div>
+    {% endif %}
+  </div>
+  <div class="mt-4"><button class="btn btn-primary">Create class</button> <a class="btn btn-link" href="/">Cancel</a></div>
+</form>
+{% endblock %}
