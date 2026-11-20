@@ -475,3 +475,47 @@ tr.st-row-excused td { color: var(--gb-muted); }
 .keys td:first-child { white-space: nowrap; width: 1%; padding-right: 1rem; }
 .gb-empty-text { max-width: 34rem; }
 .gb-empty .fs-1, .gb-empty-icon { color: color-mix(in srgb, var(--gb-primary-text) 55%, var(--gb-muted)); }
+
+/* ── High contrast ──────────────────────────────────────────────────────────
+   data-contrast="more" on <html> (theme.js: the menu's toggle, or the
+   computer's "increase contrast" setting). Text goes to full black or white,
+   grey text darkens, borders and lines get stronger, shadows go, links are
+   underlined, and focus outlines are thick. */
+[data-contrast=more] {
+  --gb-text: #000; --gb-strong: #000; --gb-muted: #2f3a43; --gb-calc: #1f2a33; --gb-group: #1f2a33;
+  --gb-border: #6b7782; --gb-border-strong: #3d4851; --gb-line: #8d98a2;
+  --gb-bg: #fff; --gb-surface-2: #eef1f4; --gb-stripe: #dfe4e8;
+  --gb-shadow-sm: none; --gb-shadow: none; --gb-shadow-lg: 0 0 0 2px #000;
+  --gb-focus: #000;
+  --gb-missing-fg: #8a0000; --gb-excused-fg: #3d4851; --gb-pending-fg: #1d3a78; --gb-done-fg: #0b4d26;
+  --gb-bar-fg: #000; --gb-bar-unsaved-fg: #000;
+  --gb-text-lift: 0%;
+}
+[data-bs-theme=dark][data-contrast=more] {
+  --gb-text: #fff; --gb-strong: #fff; --gb-muted: #d7dde2; --gb-calc: #e9edf0; --gb-group: #e9edf0;
+  --gb-bg: #000; --gb-surface: #000; --gb-surface-2: #101418; --gb-subtle: #0a0d10; --gb-input: #000; --gb-stripe: #1c2329;
+  --gb-border: #8d98a2; --gb-border-strong: #c3cad1; --gb-line: #5f6b75; --gb-hover: #1a2026;
+  --gb-primary-text: #bfe3f2; --gb-primary-fill: #0a5a7c; --gb-nav: #000;
+  --gb-shadow-lg: 0 0 0 2px #fff;
+  --gb-focus: #fff;
+  --gb-missing-fg: #ffb3b3; --gb-excused-fg: #d7dde2; --gb-pending-fg: #c7d8ff; --gb-done-fg: #8ff0b8;
+  --gb-bar-fg: #fff; --gb-bar-unsaved-fg: #fff;
+  --gb-mix: #000; --gb-text-lift: 65%;
+}
+[data-contrast=more] a:not(.btn):not(.nav-link):not(.dropdown-item):not(.navbar-brand) { text-decoration: underline; }
+[data-contrast=more] :focus-visible { outline: 3px solid var(--gb-focus) !important; outline-offset: 2px; box-shadow: none !important; }
+[data-contrast=more] .gb-grid td.cell.focused { box-shadow: inset 0 0 0 3px var(--gb-strong); }
+[data-contrast=more] .grade-pill { color: var(--gb-strong); border: 2px solid var(--c); background: color-mix(in srgb, var(--c) 10%, var(--gb-mix)); }
+[data-contrast=more]:not([data-bs-theme=dark]) .grade-text { color: color-mix(in srgb, var(--c), black 40%); }
+[data-contrast=more] .btn-outline-secondary { --bs-btn-color: var(--gb-strong); --bs-btn-border-color: var(--gb-border-strong); }
+[data-contrast=more] .form-control, [data-contrast=more] .form-select, [data-contrast=more] .form-check-input { border-color: var(--gb-border-strong); }
+[data-contrast=more] .card, [data-contrast=more] .gb-grid-wrap, [data-contrast=more] .gb-empty { border-color: var(--gb-border-strong); }
+[data-contrast=more] .text-muted { color: var(--gb-muted) !important; }
+
+/* Windows high contrast (forced colours): keep what colour alone was showing. */
+@media (forced-colors: active) {
+  .grade-pill, .gb-grid td.cell.st-missing, .gb-grid td.cell.st-late, .gb-grid td.cell.st-pending { border: 1px solid CanvasText; }
+  .gb-grid td.cell.focused { outline: 3px solid Highlight; outline-offset: -3px; }
+  .dist-bar > div { background: CanvasText !important; }
+  .swatch { forced-color-adjust: none; }
+}
