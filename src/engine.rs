@@ -87,25 +87,26 @@ pub enum CellInput {
     Set(MarkEntry),
 }
 
+/// Blank, or a status code (M, X, ?) rather than a mark.
+fn status_code(s: &str) -> Option<Result<CellInput, String>> {
+    Some(Ok(match s.to_ascii_uppercase().as_str() {
+        "" => CellInput::Clear,
+        "M" | "MISSING" | "NS" => CellInput::Set(MarkEntry::status(Status::Missing)),
+        "X" | "EX" | "EXC" | "EXEMPT" | "EXCUSED" => CellInput::Set(MarkEntry::status(Status::Excused)),
+        "?" | "?%" | "P" | "PENDING" => CellInput::Set(MarkEntry::status(Status::Pending)),
+        "L" | "LATE" => return Some(Err("Enter a late mark as the mark followed by L, e.g. 85L or 17/20L".into())),
+        _ => return None,
+    }))
+}
+
 /// Parse grid input such as `85`, `85%`, `17/20`, `17/20L`, `M`, `X`, `?`.
 ///
 /// `out_of` is the assessment's maximum. `17/20` is rescaled onto `out_of`, so
 /// it works on a column marked out of 100 too.
 pub fn parse_cell(input: &str, out_of: f64) -> Result<CellInput, String> {
     let s = input.trim();
-    if s.is_empty() {
-        return Ok(CellInput::Clear);
-    }
-    match s.to_ascii_uppercase().as_str() {
-        "M" | "MISSING" | "NS" => return Ok(CellInput::Set(MarkEntry::status(Status::Missing))),
-        "X" | "EX" | "EXC" | "EXEMPT" | "EXCUSED" => {
-            return Ok(CellInput::Set(MarkEntry::status(Status::Excused)));
-        }
-        "?" | "?%" | "P" | "PENDING" => return Ok(CellInput::Set(MarkEntry::status(Status::Pending))),
-        "L" | "LATE" => {
-            return Err("Enter a late mark as the mark followed by L, e.g. 85L or 17/20L".into());
-        }
-        _ => {}
+    if let Some(c) = status_code(s) {
+        return c;
     }
 
     let (body, late) = match s.strip_suffix(['L', 'l']) {
@@ -150,6 +151,9 @@ pub fn parse_input(kind: Kind, input: &str, out_of: f64) -> Result<CellInput, St
             _ => Err("For done/not-done columns use Y (done), N (not done), X (excused) or leave blank.".into()),
         };
     }
+    if kind == Kind::Level {
+        return parse_level(input);
+    }
     parse_cell(input, out_of)
 }
 
@@ -167,11 +171,12 @@ pub fn fmt_num(v: f64) -> String {
     }
 }
 
-/// Text shown for a mark in the grid / export (inverse of [`parse_cell`]).
-pub fn display_cell(m: &MarkEntry) -> String {
+/// Text for a mark of the given kind (inverse of [`parse_input`]).
+pub fn display_mark(kind: Kind, m: &MarkEntry) -> String {
+    let num = |v: f64| if kind == Kind::Level { level_text(v) } else { fmt_num(v) };
     match (m.value, m.status) {
-        (Some(v), Status::Late) => format!("{}L", fmt_num(v)),
-        (Some(v), _) => fmt_num(v),
+        (Some(v), Status::Late) => format!("{}L", num(v)),
+        (Some(v), _) => num(v),
         (None, s) => s.code().to_string(),
     }
 }
@@ -335,25 +340,138 @@ impl MissingPolicy {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum Kind {
     /// A mark out of `out_of`.
     Scored,
     /// Done / not done (e.g. journals). Never affects the grade.
     Completion,
+    /// A level from 1 to 4 (with + and −), e.g. weekly participation. Counts
+    /// toward the grade through the teacher's level → percentage table.
+    Level,
 }
 
 impl Kind {
     pub fn parse(s: &str) -> Kind {
-        if s == "completion" { Kind::Completion } else { Kind::Scored }
+        match s {
+            "completion" => Kind::Completion,
+            "level" => Kind::Level,
+            _ => Kind::Scored,
+        }
     }
     pub fn as_str(self) -> &'static str {
         match self {
             Kind::Scored => "scored",
             Kind::Completion => "completion",
+            Kind::Level => "level",
         }
     }
+    /// Counts toward the grade (marks and levels; not done / not done).
+    pub fn graded(self) -> bool {
+        self != Kind::Completion
+    }
+}
+
+// ── Levels ───────────────────────────────────────────────────────────────────
+
+/// The highest level. Level assessments are stored "out of" this.
+pub const MAX_LEVEL: f64 = 4.0;
+/// What + and − add or take away from a level.
+const LEVEL_STEP: f64 = 1.0 / 3.0;
+
+/// What each level is worth as a percentage: R (below level 1), 1, 2, 3, 4.
+/// Between levels (3+, 4−) the percentage is in proportion.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Levels {
+    pub pct: [f64; 5],
+}
+
+impl Default for Levels {
+    /// The middle of each Ontario achievement level's range.
+    fn default() -> Self {
+        Levels { pct: [40.0, 55.0, 65.0, 75.0, 90.0] }
+    }
+}
+
+impl Levels {
+    /// Valid when each level is worth more than the one below it.
+    pub fn new(pct: [f64; 5]) -> Option<Levels> {
+        let ok = pct.iter().all(|p| (0.0..=100.0).contains(p)) && pct.windows(2).all(|w| w[0] < w[1]);
+        ok.then_some(Levels { pct })
+    }
+
+    /// Percentage for a level (0 = R … 4, 4+ ≈ 4.33).
+    pub fn to_pct(self, level: f64) -> f64 {
+        let p = &self.pct;
+        let l = level.clamp(0.0, MAX_LEVEL + 0.5);
+        let i = (l.floor() as usize).min(3);
+        (p[i] + (p[i + 1] - p[i]) * (l - i as f64)).clamp(0.0, 100.0)
+    }
+
+    /// The level a percentage works out to (the inverse of [`Levels::to_pct`]).
+    pub fn level_of(&self, pct: f64) -> f64 {
+        let p = &self.pct;
+        if pct <= p[0] {
+            return 0.0;
+        }
+        for i in 0..4 {
+            if pct <= p[i + 1] || i == 3 {
+                return (i as f64 + (pct - p[i]) / (p[i + 1] - p[i])).min(MAX_LEVEL + LEVEL_STEP);
+            }
+        }
+        MAX_LEVEL
+    }
+}
+
+/// A level as a teacher writes it: R, 1 … 4, with + or − for a third of a
+/// level either way (3+, 4−). Anything else to two decimals.
+pub fn level_text(level: f64) -> String {
+    let n = level.round();
+    let d = level - n;
+    let base = if n == 0.0 { "R".to_string() } else { fmt_num(n) };
+    if d.abs() < 0.01 {
+        base
+    } else if (d - LEVEL_STEP).abs() < 0.01 {
+        format!("{base}+")
+    } else if (d + LEVEL_STEP).abs() < 0.01 {
+        format!("{base}-")
+    } else {
+        fmt_num(level)
+    }
+}
+
+/// The nearest whole level, + or − for an average (e.g. 3.2 → "3", 3.4 → "3+").
+pub fn level_label(level: f64) -> String {
+    level_text((level / LEVEL_STEP).round() * LEVEL_STEP)
+}
+
+fn parse_level(input: &str) -> Result<CellInput, String> {
+    const HELP: &str = "Type a level from 1 to 4 (3+ and 4- are fine), R for below level 1, or M, X, ?";
+    let s = input.trim();
+    if let Some(c) = status_code(s) {
+        return c;
+    }
+    let (body, late) = match s.strip_suffix(['L', 'l']).filter(|b| !b.trim().is_empty()) {
+        Some(rest) => (rest.trim(), true),
+        None => (s, false),
+    };
+    let lower = body.to_ascii_lowercase();
+    let body = lower.strip_prefix("level").or_else(|| lower.strip_prefix('l')).unwrap_or(&lower).trim();
+    let (num, adj) = match body.strip_suffix('+') {
+        Some(b) => (b.trim(), LEVEL_STEP),
+        None => match body.strip_suffix(['-', '−']) {
+            Some(b) => (b.trim(), -LEVEL_STEP),
+            None => (body, 0.0),
+        },
+    };
+    let base = if num == "r" { 0.0 } else { num.parse::<f64>().ok().filter(|v| v.is_finite()).ok_or_else(|| HELP.to_string())? };
+    let level = base + adj;
+    if !(0.0..=MAX_LEVEL + 0.5).contains(&level) || (base == 0.0 && adj < 0.0) {
+        return Err(HELP.into());
+    }
+    let level = (level * 1000.0).round() / 1000.0;
+    Ok(CellInput::Set(MarkEntry { value: Some(level), status: if late { Status::Late } else { Status::Marked } }))
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -382,6 +500,7 @@ pub struct Setup {
     pub categories: Vec<CategoryIn>,
     pub assessments: Vec<AssessmentIn>,
     pub policy: MissingPolicy,
+    pub levels: Levels,
 }
 
 // ── Results ──────────────────────────────────────────────────────────────────
@@ -422,30 +541,34 @@ pub struct StudentResult {
 }
 
 /// Percentage for one mark, if it has a value that counts.
-pub fn mark_pct(a: &AssessmentIn, m: &MarkEntry) -> Option<f64> {
+pub fn mark_pct(a: &AssessmentIn, m: &MarkEntry, levels: &Levels) -> Option<f64> {
     match m.status {
-        Status::Marked | Status::Late => m.value.map(|v| if a.out_of > 0.0 { v / a.out_of * 100.0 } else { 0.0 }),
+        Status::Marked | Status::Late => m.value.map(|v| match a.kind {
+            Kind::Level => levels.to_pct(v),
+            _ if a.out_of > 0.0 => v / a.out_of * 100.0,
+            _ => 0.0,
+        }),
         _ => None,
     }
 }
 
 /// Percentage that counts toward an average under the missing-work policy.
-fn counted_pct(a: &AssessmentIn, m: Option<&MarkEntry>, policy: MissingPolicy) -> Option<f64> {
+fn counted_pct(a: &AssessmentIn, m: Option<&MarkEntry>, setup: &Setup) -> Option<f64> {
     let m = m?;
     match m.status {
-        Status::Missing if policy == MissingPolicy::Zero => Some(0.0),
-        _ => mark_pct(a, m),
+        Status::Missing if setup.policy == MissingPolicy::Zero => Some(0.0),
+        _ => mark_pct(a, m, &setup.levels),
     }
 }
 
 fn weighted_mean<'a>(
     items: impl Iterator<Item = &'a AssessmentIn>,
     marks: &HashMap<i64, MarkEntry>,
-    policy: MissingPolicy,
+    setup: &Setup,
 ) -> (Option<f64>, usize) {
     let (mut sum, mut wsum, mut n) = (0.0, 0.0, 0usize);
-    for a in items.filter(|a| a.kind == Kind::Scored && a.weight > 0.0) {
-        if let Some(p) = counted_pct(a, marks.get(&a.id), policy) {
+    for a in items.filter(|a| a.kind.graded() && a.weight > 0.0) {
+        if let Some(p) = counted_pct(a, marks.get(&a.id), setup) {
             sum += p * a.weight;
             wsum += a.weight;
             n += 1;
@@ -460,7 +583,7 @@ fn weighted_mean<'a>(
 /// final grade, if any.
 pub fn compute(setup: &Setup, marks: &HashMap<i64, MarkEntry>, override_pct: Option<f64>) -> StudentResult {
     let mut r = StudentResult::default();
-    let scored: Vec<&AssessmentIn> = setup.assessments.iter().filter(|a| a.kind == Kind::Scored).collect();
+    let scored: Vec<&AssessmentIn> = setup.assessments.iter().filter(|a| a.kind.graded()).collect();
 
     // Counts.
     for a in &scored {
@@ -495,7 +618,7 @@ pub fn compute(setup: &Setup, marks: &HashMap<i64, MarkEntry>, override_pct: Opt
 
     // Category / overall.
     if setup.categories.is_empty() {
-        let (avg, _) = weighted_mean(scored.iter().copied(), marks, setup.policy);
+        let (avg, _) = weighted_mean(scored.iter().copied(), marks, setup);
         r.calculated = avg;
     } else {
         let known: std::collections::HashSet<i64> = setup.categories.iter().map(|c| c.id).collect();
@@ -504,7 +627,7 @@ pub fn compute(setup: &Setup, marks: &HashMap<i64, MarkEntry>, override_pct: Opt
             r.warnings.push(format!("{orphaned} assessment(s) have no category and don't count toward the grade."));
         }
         for c in &setup.categories {
-            let (avg, n) = weighted_mean(scored.iter().copied().filter(|a| a.category_id == Some(c.id)), marks, setup.policy);
+            let (avg, n) = weighted_mean(scored.iter().copied().filter(|a| a.category_id == Some(c.id)), marks, setup);
             r.categories.push(CategoryResult { id: Some(c.id), name: c.name.clone(), weight: c.weight, avg, counted: n });
         }
         let with_marks: Vec<&CategoryResult> = r.categories.iter().filter(|c| c.avg.is_some()).collect();
@@ -531,7 +654,7 @@ pub fn compute(setup: &Setup, marks: &HashMap<i64, MarkEntry>, override_pct: Opt
         }
     }
     for u in unit_names {
-        let (avg, _) = weighted_mean(scored.iter().copied().filter(|a| a.unit == u), marks, setup.policy);
+        let (avg, _) = weighted_mean(scored.iter().copied().filter(|a| a.unit == u), marks, setup);
         r.units.push(UnitResult { name: u.to_string(), avg });
     }
 
@@ -581,13 +704,18 @@ mod tests {
     fn display_roundtrip() {
         for (s, out_of) in [("85", 100.0), ("17.5", 20.0), ("12L", 20.0), ("M", 5.0), ("X", 5.0), ("?", 5.0)] {
             let CellInput::Set(m) = parse_cell(s, out_of).unwrap() else { panic!() };
-            assert_eq!(display_cell(&m), s);
+            assert_eq!(display_mark(Kind::Scored, &m), s);
         }
     }
 
     #[test]
     fn real_zero_is_not_missing() {
-        let setup = Setup { categories: vec![], assessments: vec![a(1, None, 10.0), a(2, None, 10.0)], policy: MissingPolicy::Ignore };
+        let setup = Setup {
+            categories: vec![],
+            assessments: vec![a(1, None, 10.0), a(2, None, 10.0)],
+            policy: MissingPolicy::Ignore,
+            levels: Levels::default(),
+        };
         let marks = HashMap::from([(1, MarkEntry::marked(0.0)), (2, MarkEntry::marked(10.0))]);
         let r = compute(&setup, &marks, None);
         approx(r.overall, 50.0);
@@ -604,11 +732,19 @@ mod tests {
             (3, MarkEntry::status(Status::Excused)),
             (4, MarkEntry::status(Status::Pending)),
         ]);
-        let ignore = compute(&Setup { categories: vec![], assessments: asmts.clone(), policy: MissingPolicy::Ignore }, &marks, None);
+        let ignore = compute(
+            &Setup { categories: vec![], assessments: asmts.clone(), policy: MissingPolicy::Ignore, levels: Levels::default() },
+            &marks,
+            None,
+        );
         approx(ignore.overall, 80.0);
         assert_eq!((ignore.submitted, ignore.missing, ignore.pending, ignore.excused, ignore.expected), (2, 1, 1, 1, 4));
 
-        let zero = compute(&Setup { categories: vec![], assessments: asmts, policy: MissingPolicy::Zero }, &marks, None);
+        let zero = compute(
+            &Setup { categories: vec![], assessments: asmts, policy: MissingPolicy::Zero, levels: Levels::default() },
+            &marks,
+            None,
+        );
         approx(zero.overall, 40.0);
     }
 
@@ -624,6 +760,7 @@ mod tests {
             ],
             assessments: vec![a(1, Some(1), 100.0), t2, a(3, Some(2), 100.0)],
             policy: MissingPolicy::Ignore,
+            levels: Levels::default(),
         };
         // Term: (60*1 + 90*2)/3 = 80. Final: 50. Overall: 80*.7 + 50*.3 = 71.
         let marks = HashMap::from([(1, MarkEntry::marked(60.0)), (2, MarkEntry::marked(45.0)), (3, MarkEntry::marked(50.0))]);
@@ -644,6 +781,7 @@ mod tests {
             ],
             assessments: vec![a(1, Some(1), 100.0), a(2, Some(2), 100.0)],
             policy: MissingPolicy::Ignore,
+            levels: Levels::default(),
         };
         let r = compute(&setup, &HashMap::from([(1, MarkEntry::marked(82.0))]), None);
         approx(r.overall, 82.0);
@@ -656,7 +794,12 @@ mod tests {
         formative.weight = 0.0;
         let mut journal = a(3, None, 1.0);
         journal.kind = Kind::Completion;
-        let setup = Setup { categories: vec![], assessments: vec![a(1, None, 10.0), formative, journal], policy: MissingPolicy::Zero };
+        let setup = Setup {
+            categories: vec![],
+            assessments: vec![a(1, None, 10.0), formative, journal],
+            policy: MissingPolicy::Zero,
+            levels: Levels::default(),
+        };
         let marks = HashMap::from([(1, MarkEntry::marked(9.0)), (2, MarkEntry::marked(1.0)), (3, MarkEntry::marked(1.0))]);
         let r = compute(&setup, &marks, None);
         approx(r.overall, 90.0);
@@ -669,6 +812,7 @@ mod tests {
             categories: vec![CategoryIn { id: 1, name: "All".into(), weight: 100.0 }],
             assessments: vec![a(1, Some(1), 10.0), a(2, None, 10.0)],
             policy: MissingPolicy::Ignore,
+            levels: Levels::default(),
         };
         let marks = HashMap::from([(1, MarkEntry::marked(10.0)), (2, MarkEntry::marked(0.0))]);
         let r = compute(&setup, &marks, None);
@@ -682,6 +826,7 @@ mod tests {
             categories: vec![CategoryIn { id: 1, name: "A".into(), weight: 30.0 }, CategoryIn { id: 2, name: "B".into(), weight: 30.0 }],
             assessments: vec![a(1, Some(1), 10.0), a(2, Some(2), 10.0)],
             policy: MissingPolicy::Ignore,
+            levels: Levels::default(),
         };
         let marks = HashMap::from([(1, MarkEntry::marked(10.0)), (2, MarkEntry::marked(5.0))]);
         let r = compute(&setup, &marks, None);
@@ -691,7 +836,8 @@ mod tests {
 
     #[test]
     fn override_wins() {
-        let setup = Setup { categories: vec![], assessments: vec![a(1, None, 10.0)], policy: MissingPolicy::Ignore };
+        let setup =
+            Setup { categories: vec![], assessments: vec![a(1, None, 10.0)], policy: MissingPolicy::Ignore, levels: Levels::default() };
         let r = compute(&setup, &HashMap::from([(1, MarkEntry::marked(5.0))]), Some(62.0));
         approx(r.calculated, 50.0);
         approx(r.overall, 62.0);
@@ -700,7 +846,8 @@ mod tests {
 
     #[test]
     fn no_marks_means_no_grade() {
-        let setup = Setup { categories: vec![], assessments: vec![a(1, None, 10.0)], policy: MissingPolicy::Ignore };
+        let setup =
+            Setup { categories: vec![], assessments: vec![a(1, None, 10.0)], policy: MissingPolicy::Ignore, levels: Levels::default() };
         let r = compute(&setup, &HashMap::new(), None);
         assert_eq!(r.overall, None);
         assert_eq!(r.expected, 1);
@@ -714,7 +861,7 @@ mod tests {
         y.unit = "Unit 1".into();
         let mut z = a(3, None, 10.0);
         z.unit = "Unit 2".into();
-        let setup = Setup { categories: vec![], assessments: vec![x, y, z], policy: MissingPolicy::Ignore };
+        let setup = Setup { categories: vec![], assessments: vec![x, y, z], policy: MissingPolicy::Ignore, levels: Levels::default() };
         let marks = HashMap::from([(1, MarkEntry::marked(10.0)), (2, MarkEntry::marked(5.0)), (3, MarkEntry::marked(6.0))]);
         let r = compute(&setup, &marks, None);
         assert_eq!(r.units.iter().map(|u| u.name.as_str()).collect::<Vec<_>>(), ["Unit 2", "Unit 1"]);
@@ -743,5 +890,72 @@ mod tests {
         s.bands.pop();
         assert!(s.validate().is_err());
         assert!(Scale::new(vec![]).validate().is_err());
+    }
+
+    #[test]
+    fn levels_parse_and_show() {
+        let lv = |s: &str| match parse_input(Kind::Level, s, MAX_LEVEL) {
+            Ok(CellInput::Set(m)) => m,
+            other => panic!("{s}: {other:?}"),
+        };
+        for (typed, shown) in [
+            ("3", "3"),
+            ("3+", "3+"),
+            ("4-", "4-"),
+            ("4−", "4-"),
+            ("L2", "2"),
+            ("level 1+", "1+"),
+            ("R", "R"),
+            ("3+L", "3+L"),
+            ("4L", "4L"),
+            ("M", "M"),
+            ("x", "X"),
+            ("?", "?"),
+        ] {
+            assert_eq!(display_mark(Kind::Level, &lv(typed)), shown, "{typed}");
+        }
+        assert_eq!(lv("3L").status, Status::Late);
+        assert_eq!(parse_input(Kind::Level, "", MAX_LEVEL), Ok(CellInput::Clear));
+        for bad in ["5", "abc", "R-", "-1", "L"] {
+            assert!(parse_input(Kind::Level, bad, MAX_LEVEL).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn levels_convert_to_percentages() {
+        let l = Levels::default();
+        approx(Some(l.to_pct(3.0)), 75.0);
+        approx(Some(l.to_pct(4.0)), 90.0);
+        approx(Some(l.to_pct(0.0)), 40.0);
+        approx(Some(l.to_pct(3.0 + LEVEL_STEP)), 80.0);
+        approx(Some(l.to_pct(4.0 + LEVEL_STEP)), 95.0);
+        for v in [0.0, 1.0, 2.5, 3.0, 4.0, 4.0 + LEVEL_STEP] {
+            approx(Some(l.level_of(l.to_pct(v))), v);
+        }
+        assert_eq!(level_label(l.level_of(78.0)), "3+");
+        assert_eq!(level_label(3.1), "3");
+        assert!(Levels::new([40.0, 55.0, 55.0, 75.0, 90.0]).is_none());
+    }
+
+    #[test]
+    fn levels_count_toward_their_category() {
+        let mut part = a(2, Some(2), MAX_LEVEL);
+        part.kind = Kind::Level;
+        let mut part2 = a(3, Some(2), MAX_LEVEL);
+        part2.kind = Kind::Level;
+        let setup = Setup {
+            categories: vec![
+                CategoryIn { id: 1, name: "Work".into(), weight: 85.0 },
+                CategoryIn { id: 2, name: "Participation".into(), weight: 15.0 },
+            ],
+            assessments: vec![a(1, Some(1), 100.0), part, part2],
+            policy: MissingPolicy::Ignore,
+            levels: Levels::default(),
+        };
+        let marks = HashMap::from([(1, MarkEntry::marked(80.0)), (2, MarkEntry::marked(4.0)), (3, MarkEntry::marked(3.0))]);
+        let r = compute(&setup, &marks, None);
+        approx(r.categories[1].avg, 82.5);
+        approx(r.overall, 80.0 * 0.85 + 82.5 * 0.15);
+        assert_eq!(r.submitted, 3);
     }
 }

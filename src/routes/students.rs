@@ -8,7 +8,7 @@ use super::{F, flash_to, render};
 use crate::{
     AppState,
     auth::Auth,
-    engine::{self, Status, display_cell, fmt_num},
+    engine::{self, Status, display_mark, fmt_num},
     error::AppResult,
     model::{self, LEARNING_SKILLS, Student},
     report::{Options, REPORT_TYPES},
@@ -53,7 +53,7 @@ pub async fn page(State(state): State<AppState>, auth: Auth, Path((cid, sid)): P
 
             let mut subjects = Vec::new();
             for s in model::subjects(c, cid)? {
-                let sd = model::subject_data(c, s, settings.missing_policy)?;
+                let sd = model::subject_data(c, s, &settings)?;
                 let r = sd.result_for(sid);
                 let cats: Vec<_> = r
                     .categories
@@ -68,12 +68,13 @@ pub async fn page(State(state): State<AppState>, auth: Auth, Path((cid, sid)): P
                     .iter()
                     .map(|a| {
                         let m = sd.mark(sid, a.id);
-                        let pct = m.and_then(|m| engine::mark_pct(&a.engine(), m));
+                        let pct = m.and_then(|m| sd.mark_pct(a, m));
+                        let kind = engine::Kind::parse(&a.kind);
                         let cat = sd.categories.iter().find(|x| Some(x.id) == a.category_id).map(|x| x.name.clone());
                         ctx! {
                             name => a.name, unit => a.unit, out_of => fmt_num(a.out_of), kind => a.kind, category => cat,
                             weight => fmt_num(a.weight), formative => a.weight == 0.0,
-                            text => m.map(display_cell), status => m.map(|m| m.status.as_str()),
+                            text => m.map(|m| display_mark(kind, m)), status => m.map(|m| m.status.as_str()),
                             pct, label => pct.map(|p| scale.label(p)), color => pct.map(|p| scale.color(p)),
                         }
                     })

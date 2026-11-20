@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 
 use crate::{
     auth::Auth,
-    engine::{self, CellInput, Kind, display_cell},
+    engine::{self, CellInput, Kind, display_mark},
     error::{AppError, AppResult},
     marks::{self, Change},
     model,
@@ -30,7 +30,7 @@ fn grid_json(c: &Connection, user_id: i64, subject_id: i64, errors: Vec<Value>) 
     let (subject, class) = model::subject(c, user_id, subject_id)?;
     let settings = model::settings(c, user_id)?;
     let roster = model::roster(c, class.id)?;
-    let sd = model::subject_data(c, subject, settings.missing_policy)?;
+    let sd = model::subject_data(c, subject, &settings)?;
     let scale = &settings.scale;
 
     let mut cells = serde_json::Map::new();
@@ -41,7 +41,8 @@ fn grid_json(c: &Connection, user_id: i64, subject_id: i64, errors: Vec<Value>) 
         let mut row = serde_json::Map::new();
         if let Some(ms) = sd.marks.get(&st.id) {
             for (aid, m) in ms {
-                row.insert(aid.to_string(), json!({ "text": display_cell(m), "status": m.status.as_str() }));
+                let kind = sd.assessments.iter().find(|a| a.id == *aid).map_or(Kind::Scored, |a| Kind::parse(&a.kind));
+                row.insert(aid.to_string(), json!({ "text": display_mark(kind, m), "status": m.status.as_str() }));
             }
         }
         cells.insert(st.id.to_string(), Value::Object(row));
@@ -77,11 +78,14 @@ fn grid_json(c: &Connection, user_id: i64, subject_id: i64, errors: Vec<Value>) 
         .assessments
         .iter()
         .map(|a| {
-            let ai = a.engine();
-            let pcts: Vec<f64> = roster.iter().filter_map(|st| sd.mark(st.id, a.id).and_then(|m| engine::mark_pct(&ai, m))).collect();
+            let pcts: Vec<f64> = roster.iter().filter_map(|st| sd.mark(st.id, a.id).and_then(|m| sd.mark_pct(a, m))).collect();
             let avg = (!pcts.is_empty()).then(|| pcts.iter().sum::<f64>() / pcts.len() as f64);
             let mut v = serde_json::to_value(a).unwrap_or_default();
             v["avg"] = json!(avg);
+            // Levels average as a level (3+), not a percentage.
+            if Kind::parse(&a.kind) == Kind::Level {
+                v["avg_text"] = json!(avg.map(|p| format!("L{}", engine::level_label(sd.setup.levels.level_of(p)))));
+            }
             v
         })
         .collect();
@@ -225,8 +229,10 @@ fn validate(a: &mut AssessmentIn, c: &Connection, subject_id: i64) -> AppResult<
         return Err(crate::error::bad("Give the assessment a name."));
     }
     let kind = Kind::parse(&a.kind);
-    if kind == Kind::Completion {
-        a.out_of = 1.0;
+    match kind {
+        Kind::Completion => a.out_of = 1.0,
+        Kind::Level => a.out_of = engine::MAX_LEVEL,
+        Kind::Scored => {}
     }
     if !(a.out_of > 0.0 && a.out_of <= 10_000.0) {
         return Err(crate::error::bad("\"Out of\" must be more than 0."));
@@ -280,6 +286,16 @@ pub async fn assessment_update(auth: Auth, Path(aid): Path<i64>, Json(mut a): Js
             let (old, subject, class) = model::assessment(c, uid, aid)?;
             model::class_mut(c, uid, class.id)?;
             validate(&mut a, c, subject.id)?;
+            let (from, to) = (Kind::parse(&old.kind), Kind::parse(&a.kind));
+            if from != to && (from == Kind::Level || to == Kind::Level) {
+                let marked: i64 =
+                    c.query_row("SELECT count(*) FROM marks WHERE assessment_id = ?1 AND value IS NOT NULL", [aid], |r| r.get(0))?;
+                if marked > 0 {
+                    return Err(crate::error::bad(
+                        "This assessment has marks, so it can't be changed to or from levels. Add a new assessment instead.",
+                    ));
+                }
+            }
             let tx = c.transaction()?;
             if a.rescale && (old.out_of - a.out_of).abs() > 1e-9 && old.kind == "scored" {
                 tx.execute(

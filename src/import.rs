@@ -384,8 +384,13 @@ fn prepare(c: &Connection, user_id: i64, class_id: i64, subject_id: i64, grid: &
         if spec.name.is_empty() {
             continue;
         }
-        let kind = if r == Role::Completion { Kind::Completion } else { Kind::Scored };
         let found = existing.iter().find(|a| name_key(&a.name) == name_key(&spec.name));
+        let kind = match found {
+            // Levels stay levels.
+            Some(a) if Kind::parse(&a.kind) == Kind::Level => Kind::Level,
+            _ if r == Role::Completion => Kind::Completion,
+            _ => Kind::Scored,
+        };
         let values: Vec<f64> = data_rows
             .iter()
             .filter_map(|&ri| match grid[ri].get(i) {
@@ -396,6 +401,7 @@ fn prepare(c: &Connection, user_id: i64, class_id: i64, subject_id: i64, grid: &
         // Work out what the numbers mean.
         let (out_of, scale) = match (found, spec.out_of, kind) {
             (_, _, Kind::Completion) => (1.0, 1.0),
+            (_, _, Kind::Level) => (engine::MAX_LEVEL, 1.0),
             (Some(a), Some(o), _) => (a.out_of, a.out_of / o),
             (Some(a), None, _) if values.iter().all(|v| *v <= 1.0) && a.out_of > 1.0 && !values.is_empty() => (a.out_of, a.out_of),
             (Some(a), None, _) => (a.out_of, 1.0),
@@ -437,6 +443,14 @@ fn prepare(c: &Connection, user_id: i64, class_id: i64, subject_id: i64, grid: &
                         Some(MarkEntry::marked(1.0))
                     }
                 }
+                (c, Kind::Level) if !c.is_empty() => match engine::parse_input(Kind::Level, &c.text(), col.out_of) {
+                    Ok(CellInput::Set(m)) => Some(m),
+                    Ok(CellInput::Clear) => None,
+                    Err(_) => {
+                        bad_cells.push(format!("{} / {}: \"{}\"", students[si].first, col.spec.name, c.text()));
+                        None
+                    }
+                },
                 (c, _) if c.is_empty() => {
                     if opts.blank_as == "missing" {
                         Some(MarkEntry::status(Status::Missing))

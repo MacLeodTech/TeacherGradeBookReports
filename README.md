@@ -3,23 +3,27 @@
 A self-hosted gradebook for teachers that produces professional PDF progress reports.
 
 - **Your workbook is yours.** All of a teacher's classes, students, marks, comments and report history save
-  to one Excel workbook, readable in Excel (a marks sheet per class) and opened again by Gradebook exactly as
-  it was. By default the server keeps **no student data at all**: it lives in memory only while the teacher
+  to one Excel workbook that opens in Excel as a plain grid of marks per class, ready to keep marking in.
+  Gradebook opens it again exactly as it was, plus any marks or assessments added in Excel. By default the server keeps **no student data at all**: it lives in memory only while the teacher
   is signed in.
 - **A spreadsheet-like mark grid** per class: add assessment columns, type or paste marks straight from
   Excel, and mark work as missing (`M`), excused (`X`), late (`17L`) or still to mark (`?`). Every change
   saves immediately and can be undone.
+- **Levels 1–4** (like weekly participation) alongside marks: type `3`, `3+`, `4-` or `R`. Reports show
+  "Level 3+", and each level converts to a percentage for the final grade (75% for level 3 by default; set
+  the table in **Settings**).
 - **Weights like report-card software:** categories such as Knowledge/Thinking/Communication/Application
   plus a 30% final, with relative weights per assessment and formative (weight 0) work.
 - **Click a student** to see just their marks, write comments (with a reusable comment bank), rate
   learning skills, and preview or download their report. Or download a whole class as a ZIP.
 - **Elementary, high school or university:** one class with many subjects; 1–3 periods plus a prep (for
   LTO and part-time teachers too); or any number of courses.
-- **A starter spreadsheet** to get going: download it from **Import**, fill in classes, students,
-  assessments and marks in Excel (a help sheet explains every mark code, and a worked example class with
-  comments on each mark shows them in use; it's never imported), and upload it. You see what it will
-  create and any cells to fix before anything is saved. Upload it again later to update marks, or download it
-  with your current classes filled in.
+- **A starter spreadsheet** to get going: download it from **Import**. Each class is a plain grid (class name
+  at the top, students down the side, one assessment per column like `Quiz 1 /20`), with a **Start here** tab
+  explaining the mark codes and a worked example (never imported). Categories, weights, course codes and
+  pronouns are on optional grey **Setup** tabs at the back. Upload it and you see what it will create, and
+  any cells to fix, before anything is saved. Upload it again later to update marks, or download it with
+  your current classes filled in.
 - **Still imports spreadsheets.** Upload an Excel/CSV file, check how each column is read, and preview what
   will change before anything is saved. Re-uploading an updated sheet only changes what's different.
 
@@ -42,6 +46,11 @@ bar under the menu shows whether there are unsaved changes, and signing out with
 Save it somewhere your board allows student information (for example a board OneDrive or Google Drive).
 Opening a workbook replaces what's open; with saved storage it adds the workbook's terms and classes
 alongside instead. Importing a workbook on the **Import** page opens it too.
+
+The workbook has the same layout as the starter spreadsheet, for the current term, and nothing is locked:
+a late assignment or a new quiz can be added in Excel between sessions. Opening the file brings those
+changes in (a cleared cell clears that mark), lists them, and points out anything to check, such as which
+category a new assessment was put in. Other terms are kept in the file but not shown as tabs.
 
 The server's database still holds accounts, settings, comment banks, logos and the audit log. These contain
 no student information. A database guard refuses any write of student data to the file in memory mode, and

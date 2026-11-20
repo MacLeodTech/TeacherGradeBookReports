@@ -33,7 +33,7 @@ fn class_card(c: &Connection, settings: &Settings, class: Class) -> AppResult<Cl
     let subjects = model::subjects(c, class.id)?;
     let (mut sum, mut n, mut missing, mut pending) = (0.0, 0usize, 0, 0);
     for s in &subjects {
-        let sd = model::subject_data(c, s.clone(), settings.missing_policy)?;
+        let sd = model::subject_data(c, s.clone(), settings)?;
         for st in &roster {
             let r = sd.result_for(st.id);
             if let Some(o) = r.overall {
@@ -569,7 +569,7 @@ pub async fn insights(State(state): State<AppState>, auth: Auth, Path(id): Path<
             let roster = model::roster(c, id)?;
             let mut out = Vec::new();
             for s in model::subjects(c, id)? {
-                let sd = model::subject_data(c, s, settings.missing_policy)?;
+                let sd = model::subject_data(c, s, &settings)?;
                 let results: Vec<_> = roster.iter().map(|st| (st, sd.result_for(st.id))).collect();
                 let graded: Vec<f64> = results.iter().filter_map(|(_, r)| r.overall).collect();
                 let average = (!graded.is_empty()).then(|| graded.iter().sum::<f64>() / graded.len() as f64);
@@ -600,10 +600,9 @@ pub async fn insights(State(state): State<AppState>, auth: Auth, Path(id): Path<
                 let assessments: Vec<_> = sd
                     .assessments
                     .iter()
-                    .filter(|a| a.kind == "scored")
+                    .filter(|a| a.kind != "completion")
                     .map(|a| {
-                        let ai = a.engine();
-                        let pcts: Vec<f64> = roster.iter().filter_map(|st| sd.mark(st.id, a.id).and_then(|m| crate::engine::mark_pct(&ai, m))).collect();
+                        let pcts: Vec<f64> = roster.iter().filter_map(|st| sd.mark(st.id, a.id).and_then(|m| sd.mark_pct(a, m))).collect();
                         let count = |s: crate::engine::Status| roster.iter().filter(|st| sd.mark(st.id, a.id).is_some_and(|m| m.status == s)).count();
                         let avg = (!pcts.is_empty()).then(|| pcts.iter().sum::<f64>() / pcts.len() as f64);
                         ctx! {
@@ -634,10 +633,7 @@ pub async fn export_xlsx(State(state): State<AppState>, auth: Auth, Path(id): Pa
             let class = model::class(c, uid, id)?;
             let settings = model::settings(c, uid)?;
             let roster = model::roster(c, id)?;
-            let sds = model::subjects(c, id)?
-                .into_iter()
-                .map(|s| model::subject_data(c, s, settings.missing_policy))
-                .collect::<AppResult<Vec<_>>>()?;
+            let sds = model::subjects(c, id)?.into_iter().map(|s| model::subject_data(c, s, &settings)).collect::<AppResult<Vec<_>>>()?;
             let bytes = crate::export::class_workbook(&roster, &sds, &settings.scale)?;
             Ok((class, bytes))
         })

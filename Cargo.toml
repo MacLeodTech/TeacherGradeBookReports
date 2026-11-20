@@ -1,6 +1,6 @@
 [package]
 name = "gradebook"
-version = "2.0.0"
+version = "2.1.0"
 edition = "2024"
 description = "Self-hosted teacher gradebook with professional PDF report generation"
 license = "MIT"

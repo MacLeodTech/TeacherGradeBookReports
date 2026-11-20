@@ -45,11 +45,12 @@
             <tbody>
               {% for r in s.rows %}
               <tr class="{% if r.status %}st-row-{{ r.status }}{% endif %}">
-                <td>{{ r.name }}{% if r.formative and r.kind == "scored" %} <span class="badge bg-body-tertiary text-body-secondary border">formative</span>{% endif %}</td>
+                <td>{{ r.name }}{% if r.formative and r.kind != "completion" %} <span class="badge bg-body-tertiary text-body-secondary border">formative</span>{% endif %}</td>
                 <td class="text-muted">{{ r.unit }}</td>
                 {% if s.cats %}<td class="text-muted">{{ r.category or "—" }}</td>{% endif %}
                 <td class="text-end">
                   {% if r.kind == "completion" %}{% if r.status == "marked" %}✓{% elif r.text %}{{ r.text }}{% endif %}
+                  {% elif r.kind == "level" %}{% if r.status == "marked" or r.status == "late" %}Level {% endif %}{{ r.text }}
                   {% elif r.text %}{{ r.text }}{% if r.status == "marked" or r.status == "late" %} / {{ r.out_of }}{% endif %}{% endif %}
                 </td>
                 <td class="text-end">{% if r.pct is not none %}<span class="grade-text" style="--c: {{ r.color }}">{{ r.pct|pct }}</span>{% endif %}</td>

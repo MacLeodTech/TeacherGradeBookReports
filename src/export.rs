@@ -5,7 +5,7 @@
 use rust_xlsxwriter::{Color, Format, FormatAlign, FormatBorder, Workbook};
 
 use crate::{
-    engine::{Kind, Scale, Status, display_cell},
+    engine::{Kind, Scale, Status, display_mark},
     error::{AppError, AppResult},
     model::{Student, SubjectData},
 };
@@ -28,10 +28,10 @@ pub fn header_for(a: &crate::model::Assessment) -> String {
     if !a.unit.is_empty() {
         h.push_str(&format!(" [{}]", a.unit));
     }
-    if Kind::parse(&a.kind) == Kind::Completion {
-        h.push_str(" [done]");
-    } else {
-        h.push_str(&format!(" (/{})", crate::engine::fmt_num(a.out_of)));
+    match Kind::parse(&a.kind) {
+        Kind::Completion => h.push_str(" [done]"),
+        Kind::Level => h.push_str(" [level]"),
+        Kind::Scored => h.push_str(&format!(" (/{})", crate::engine::fmt_num(a.out_of))),
     }
     h
 }
@@ -105,11 +105,11 @@ pub fn add_mark_sheets(
                 let col = (fixed.len() + j) as u16;
                 if let Some(m) = sd.mark(s.id, a.id) {
                     match (m.value, m.status) {
-                        (Some(v), Status::Marked) => {
+                        (Some(v), Status::Marked) if a.kind != "level" => {
                             ws.write_number_with_format(row, col, v, &num).map_err(err)?;
                         }
                         _ => {
-                            ws.write_with_format(row, col, display_cell(m), &code).map_err(err)?;
+                            ws.write_with_format(row, col, display_mark(Kind::parse(&a.kind), m), &code).map_err(err)?;
                         }
                     }
                 }

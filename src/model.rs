@@ -9,7 +9,7 @@ use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
 
 use crate::{
-    engine::{self, AssessmentIn, CategoryIn, Kind, MarkEntry, MissingPolicy, Scale, Setup, Status, StudentResult},
+    engine::{self, AssessmentIn, CategoryIn, Kind, Levels, MarkEntry, MissingPolicy, Scale, Setup, Status, StudentResult},
     error::{AppError, AppResult},
 };
 
@@ -52,6 +52,7 @@ pub struct Settings {
     pub accent_color: String,
     pub has_logo: bool,
     pub scale: Scale,
+    pub levels: Levels,
     pub setup_done: bool,
 }
 
@@ -59,7 +60,7 @@ pub fn settings(c: &Connection, user_id: i64) -> AppResult<Settings> {
     c.execute("INSERT OR IGNORE INTO teacher_settings (user_id) VALUES (?1)", [user_id])?;
     Ok(c.query_row(
         "SELECT mode, active_periods, prep_period, missing_policy, board_name, report_title,
-                primary_color, accent_color, logo IS NOT NULL, scale_json, setup_done
+                primary_color, accent_color, logo IS NOT NULL, scale_json, setup_done, levels_json
          FROM teacher_settings WHERE user_id = ?1",
         [user_id],
         |r| {
@@ -76,6 +77,7 @@ pub fn settings(c: &Connection, user_id: i64) -> AppResult<Settings> {
                 has_logo: r.get::<_, i64>(8)? != 0,
                 scale: scale_json.and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_else(Scale::ontario_letters),
                 setup_done: r.get::<_, i64>(10)? != 0,
+                levels: r.get::<_, Option<String>>(11)?.and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default(),
             })
         },
     )?)
@@ -414,12 +416,17 @@ pub struct SubjectData {
     pub setup: Setup,
 }
 
-pub fn subject_data(c: &Connection, subject: Subject, policy: MissingPolicy) -> AppResult<SubjectData> {
+pub fn subject_data(c: &Connection, subject: Subject, settings: &Settings) -> AppResult<SubjectData> {
     let categories = categories(c, subject.id)?;
     let assessments = assessments(c, subject.id)?;
     let marks = marks_for_subject(c, subject.id)?;
     let overrides = overrides_for_subject(c, subject.id)?;
-    let setup = Setup { categories: categories.clone(), assessments: assessments.iter().map(Assessment::engine).collect(), policy };
+    let setup = Setup {
+        categories: categories.clone(),
+        assessments: assessments.iter().map(Assessment::engine).collect(),
+        policy: settings.missing_policy,
+        levels: settings.levels,
+    };
     Ok(SubjectData { subject, categories, assessments, marks, overrides, setup })
 }
 
@@ -428,6 +435,11 @@ impl SubjectData {
         let empty = HashMap::new();
         let marks = self.marks.get(&student_id).unwrap_or(&empty);
         engine::compute(&self.setup, marks, self.overrides.get(&student_id).map(|o| o.0))
+    }
+
+    /// One mark as a percentage, if it counts.
+    pub fn mark_pct(&self, a: &Assessment, m: &MarkEntry) -> Option<f64> {
+        engine::mark_pct(&a.engine(), m, &self.setup.levels)
     }
 
     pub fn mark(&self, student_id: i64, assessment_id: i64) -> Option<&MarkEntry> {

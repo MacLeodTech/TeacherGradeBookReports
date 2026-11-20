@@ -118,5 +118,44 @@ pub fn summary(o: &Opened) -> String {
     if o.skipped > 0 {
         s.push_str(&format!(" {} damaged row(s) were skipped.", o.skipped));
     }
+    if let Some(e) = &o.edits {
+        let plural = |n: usize, one: &str, many: &str| format!("{n} {}", if n == 1 { one } else { many });
+        let mut parts = Vec::new();
+        if e.marks_changed > 0 {
+            parts.push(plural(e.marks_changed, "mark", "marks"));
+        }
+        if e.assessments_new > 0 {
+            parts.push(plural(e.assessments_new, "new assessment", "new assessments"));
+        }
+        if e.students_new > 0 {
+            parts.push(plural(e.students_new, "new student", "new students"));
+        }
+        if !e.classes_new.is_empty() {
+            parts.push(plural(e.classes_new.len(), "new class", "new classes"));
+        }
+        if e.settings_changed > 0 {
+            parts.push(plural(e.settings_changed, "setting", "settings"));
+        }
+        if !parts.is_empty() {
+            s.push_str(&format!(
+                " Your changes in Excel were added: {}. Mark changes can be undone from the class's mark grid.",
+                parts.join(", ")
+            ));
+        }
+        let check: Vec<String> =
+            e.problems
+                .iter()
+                .chain(&e.notes)
+                .map(|p| {
+                    if p.cell.is_empty() { format!("{}: {}", p.sheet, p.message) } else { format!("{} {}: {}", p.sheet, p.cell, p.message) }
+                })
+                .collect();
+        if !check.is_empty() {
+            s.push_str(&format!(" To check: {}", check.iter().take(4).cloned().collect::<Vec<_>>().join(" · ")));
+            if check.len() > 4 {
+                s.push_str(&format!(" · and {} more.", check.len() - 4));
+            }
+        }
+    }
     s
 }
