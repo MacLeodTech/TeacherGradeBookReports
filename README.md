@@ -15,7 +15,15 @@ A self-hosted gradebook for teachers that produces professional PDF progress rep
 - **Weights like report-card software:** categories such as Knowledge/Thinking/Communication/Application
   plus a 30% final, with relative weights per assessment and formative (weight 0) work.
 - **Click a student** to see just their marks, write comments (with a reusable comment bank), rate
-  learning skills, and preview or download their report. Or download a whole class as a ZIP.
+  learning skills, and preview or download their report. Or download a whole class: a ZIP with one PDF
+  each, or one PDF to print with each student starting on a new page. Before it downloads, Gradebook lists
+  anyone with no comment, missing or unmarked work, or too few marks.
+- **Reports in your school colours.** Pick your school's two colours (or take them from your logo): the
+  main colour fills the banners, the second is the trim, and tables use soft tints of the main colour, so
+  any pair stays readable. A live preview and a sample report show the result before you save.
+- **Easy on the eyes and the keyboard:** light, dark and high-contrast modes (high contrast also follows
+  the computer's setting), clean printouts of the mark grid and student pages, and a keyboard shortcut list
+  in the grid (press `?`). After you type a mark, the grid says how it was read.
 - **Elementary, high school or university:** one class with many subjects; 1–3 periods plus a prep (for
   LTO and part-time teachers too); or any number of courses.
 - **A starter spreadsheet** to get going: download it from **Import**. Each class is a plain grid (class name

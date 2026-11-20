@@ -14,7 +14,7 @@
       <datalist id="tags">{% for t in items|map(attribute="tag")|unique %}<option value="{{ t }}">{% endfor %}</datalist>
       <label class="form-label">Comment(s), one per line</label>
       <textarea class="form-control mb-2" name="body" rows="6" placeholder="{first} consistently shows strong problem-solving skills.&#10;{They} {is} encouraged to check {their} work carefully."></textarea>
-      <button class="btn btn-primary">Add</button>
+      <button class="btn btn-primary">Add to comment bank</button>
     </form>
   </div>
   <div class="col-lg-7">
@@ -24,7 +24,7 @@
       {% for c in group %}
       <li class="list-group-item d-flex gap-2 align-items-start">
         <span class="flex-grow-1">{{ c.body }}</span>
-        <form method="post" action="/comments/{{ c.id }}/delete"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn btn-sm btn-link text-danger p-0" title="Delete"><i class="bi bi-trash"></i></button></form>
+        <form method="post" action="/comments/{{ c.id }}/delete"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn btn-sm btn-link text-danger p-0" title="Delete" aria-label="Delete this comment"><i class="bi bi-trash"></i></button></form>
       </li>
       {% endfor %}
     </ul>

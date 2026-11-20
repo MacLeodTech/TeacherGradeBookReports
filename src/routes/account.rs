@@ -75,7 +75,7 @@ pub async fn settings_save(State(state): State<AppState>, auth: Auth, f: F) -> A
     let profile = (f.get("school"), f.get("full_name"), f.get("email"));
     let term = (f.get("term_name"), f.get("period_label"), valid_date(&f.get("start_date")), valid_date(&f.get("end_date")));
     if setup && !profile.2.is_empty() && !valid_email(&profile.2) {
-        return flash_to(&state, &auth.session, "danger", "Please enter a valid email address.", "/setup").await;
+        return flash_to(&state, &auth.session, "danger", "Enter a valid email address.", "/setup").await;
     }
 
     let over_limit = auth
@@ -279,7 +279,7 @@ pub async fn profile_page(State(state): State<AppState>, auth: Auth) -> AppResul
 pub async fn profile_save(State(state): State<AppState>, auth: Auth, f: F) -> AppResult<Response> {
     let (name, email, school) = (f.get("full_name"), f.get("email"), f.get("school"));
     if !email.is_empty() && !valid_email(&email) {
-        return flash_to(&state, &auth.session, "danger", "Please enter a valid email address.", "/profile").await;
+        return flash_to(&state, &auth.session, "danger", "Enter a valid email address.", "/profile").await;
     }
     let uid = auth.user.id;
     auth.db

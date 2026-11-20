@@ -174,7 +174,7 @@
             <td><input class="form-control form-control-sm" name="min" value="{{ b.min|num }}" inputmode="decimal"></td>
             <td><input class="form-control form-control-sm" name="label" value="{{ b.label }}"></td>
             <td><input class="form-control form-control-color form-control-sm" type="color" name="color" value="{{ b.color }}"></td>
-            <td><button type="button" class="btn btn-sm btn-link text-danger" data-remove-row><i class="bi bi-x-lg"></i></button></td>
+            <td><button type="button" class="btn btn-sm btn-link text-danger" data-remove-row title="Remove" aria-label="Remove this row"><i class="bi bi-x-lg"></i></button></td>
           </tr>
           {% endfor %}
         </tbody>

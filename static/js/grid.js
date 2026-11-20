@@ -129,7 +129,7 @@
       undoBtn.disabled = !data.undo;
       undoBtn.querySelector("span").textContent = data.undo ? `Undo (${data.undo.count} ${data.undo.source === "import" ? "imported " : ""}mark${data.undo.count === 1 ? "" : "s"})` : "Undo";
     }
-    if (data.errors && data.errors.length) setStatus(`${data.errors.length} entr${data.errors.length === 1 ? "y wasn't" : "ies weren't"} understood. Hover the red cells.`, "error");
+    if (data.errors && data.errors.length) setStatus(`${data.errors.length} entr${data.errors.length === 1 ? "y wasn't" : "ies weren't"} understood. Point at a red cell to see why.`, "error");
     restoreFocus();
   }
 

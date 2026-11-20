@@ -475,7 +475,7 @@ pub fn sample_json(user: &User, s: &Settings, main: &str, second: &str) -> AppRe
         categories: categories.clone(),
         assessments: assessments.iter().map(Assessment::engine).collect(),
         policy: MissingPolicy::Ignore,
-        levels: s.levels.clone(),
+        levels: s.levels,
     };
     let sd = SubjectData {
         subject: Subject { id: 1, class_id: 1, name: "Science".into(), report_style: "percent".into() },

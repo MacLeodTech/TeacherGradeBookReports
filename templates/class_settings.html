@@ -19,7 +19,7 @@
           {% endif %}
           <div class="mb-2"><label class="form-label small">Grade</label><input class="form-control" name="grade_level" value="{{ class.grade_level }}"></div>
           <div class="mb-3"><label class="form-label small">Room</label><input class="form-control" name="room" value="{{ class.room }}"></div>
-          <button class="btn btn-primary btn-sm">Save</button>
+          <button class="btn btn-primary btn-sm">Save class details</button>
           <a class="btn btn-outline-secondary btn-sm" href="/classes/{{ class.id }}/export.xlsx"><i class="bi bi-file-earmark-spreadsheet"></i> Export to Excel</a>
         </form>
       </div>
@@ -64,7 +64,7 @@
               <tr>
                 <td><input type="hidden" name="cat_id" value="{{ c.id }}"><input class="form-control form-control-sm" name="cat_name" value="{{ c.name }}"></td>
                 <td><input class="form-control form-control-sm" name="cat_weight" value="{{ c.weight|num }}" inputmode="decimal" data-weight></td>
-                <td><button type="button" class="btn btn-sm btn-link text-danger" data-remove-row title="Remove"><i class="bi bi-x-lg"></i></button></td>
+                <td><button type="button" class="btn btn-sm btn-link text-danger" data-remove-row title="Remove" aria-label="Remove this row"><i class="bi bi-x-lg"></i></button></td>
               </tr>
               {% endfor %}
             </tbody>
@@ -104,7 +104,7 @@
       <div class="input-group">
         <input class="form-control" name="name" placeholder="e.g. French" required>
         <select class="form-select" name="report_style" style="max-width:12rem"><option value="percent">Report as %</option><option value="letter">Report as letter</option></select>
-        <button class="btn btn-outline-primary">Add</button>
+        <button class="btn btn-outline-primary">Add subject</button>
       </div>
     </form>
   </div>

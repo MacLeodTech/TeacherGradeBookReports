@@ -155,8 +155,7 @@ pub fn from_logo(bytes: &[u8]) -> Vec<String> {
             e.1[i] += c[i] * w;
         }
     }
-    let mut ranked: Vec<(f64, Rgb)> =
-        buckets.into_iter().filter(|b| b.0 > 0.0).map(|(w, s)| (w, [s[0] / w, s[1] / w, s[2] / w])).collect();
+    let mut ranked: Vec<(f64, Rgb)> = buckets.into_iter().filter(|b| b.0 > 0.0).map(|(w, s)| (w, [s[0] / w, s[1] / w, s[2] / w])).collect();
     ranked.sort_by(|a, b| b.0.total_cmp(&a.0));
     let total: f64 = ranked.iter().map(|r| r.0).sum();
     let mut picked: Vec<Rgb> = vec![];
