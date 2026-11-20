@@ -6,6 +6,9 @@ A self-hosted gradebook for teachers that produces professional PDF progress rep
   to one Excel workbook that opens in Excel as a plain grid of marks per class, ready to keep marking in.
   Gradebook opens it again exactly as it was, plus any marks or assessments added in Excel. By default the server keeps **no student data at all**: it lives in memory only while the teacher
   is signed in.
+- **A guided setup** for new teachers: a few friendly steps (your class, your students, how marks count, any
+  assignments to start with), each skippable, kept in the browser until the last step. Run it again any time to
+  add a class. It ends with a prompt to save your workbook.
 - **A spreadsheet-like mark grid** per class: add assessment columns, type or paste marks straight from
   Excel, and mark work as missing (`M`), excused (`X`), late (`17L`) or still to mark (`?`). Every change
   saves immediately and can be undone.
@@ -57,8 +60,10 @@ alongside instead. Importing a workbook on the **Import** page opens it too.
 
 The workbook has the same layout as the starter spreadsheet, for the current term, and nothing is locked:
 a late assignment or a new quiz can be added in Excel between sessions. Opening the file brings those
-changes in (a cleared cell clears that mark), lists them, and points out anything to check, such as which
-category a new assessment was put in. Other terms are kept in the file but not shown as tabs.
+changes in (a cleared cell clears that mark) and lists them. Anything Gradebook had to guess, such as the
+category of a new column or what it's out of, is flagged: a banner offers to step through those assignments
+one at a time, showing the guess for you to confirm ("Looks good") or change ("Update"). Only "out of" is
+required, and you can skip and come back. Other terms are kept in the file but not shown as tabs.
 
 The server's database still holds accounts, settings, comment banks, logos and the audit log. These contain
 no student information. A database guard refuses any write of student data to the file in memory mode, and

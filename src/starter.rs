@@ -624,7 +624,7 @@ fn start_sheet(ws: &mut Worksheet, st: &Styles, t: &Template) -> AppResult<()> {
     });
     steps.push((
         "Setup tabs",
-        "Optional. The grey tabs at the end hold course codes, categories and weights, each assessment's category and weight, and student numbers and pronouns. Anything you leave out gets a sensible default: a new assessment goes in the same category as the column before it.",
+        "Optional. The grey tabs at the end hold course codes, categories and weights, each assessment's category and weight, and student numbers and pronouns. Anything you leave out gets a sensible default: a new assessment goes in the same category as the column before it. Gradebook will then ask you to check anything it had to guess, such as the category or what a new column is out of.",
     ));
     if saved.is_some() {
         steps.push((
