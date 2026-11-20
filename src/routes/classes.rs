@@ -25,15 +25,18 @@ struct ClassCard {
     color: String,
     missing: usize,
     pending: usize,
+    /// Assessments whose details still need confirming.
+    review: usize,
     subjects: usize,
 }
 
 fn class_card(c: &Connection, settings: &Settings, class: Class) -> AppResult<ClassCard> {
     let roster = model::roster(c, class.id)?;
     let subjects = model::subjects(c, class.id)?;
-    let (mut sum, mut n, mut missing, mut pending) = (0.0, 0usize, 0, 0);
+    let (mut sum, mut n, mut missing, mut pending, mut review) = (0.0, 0usize, 0, 0, 0usize);
     for s in &subjects {
         let sd = model::subject_data(c, s.clone(), settings)?;
+        review += sd.assessments.iter().filter(|a| a.needs_review > 0).count();
         for st in &roster {
             let r = sd.result_for(st.id);
             if let Some(o) = r.overall {
@@ -52,6 +55,7 @@ fn class_card(c: &Connection, settings: &Settings, class: Class) -> AppResult<Cl
         average,
         missing,
         pending,
+        review,
         subjects: subjects.len(),
         class,
     })
@@ -111,7 +115,9 @@ pub async fn dashboard(State(state): State<AppState>, auth: Auth) -> AppResult<R
         slots.push(ctx! { prep => false, card });
     }
     let has_cards = !cards.is_empty();
-    render(&state, &auth, "dashboard.html", ctx! { term, slots, has_cards, add_error, terms }).await
+    let review_total: usize = cards.iter().map(|c| c.review).sum();
+    let review_class = cards.iter().find(|c| c.review > 0).map(|c| c.class.id);
+    render(&state, &auth, "dashboard.html", ctx! { term, slots, has_cards, add_error, terms, review_total, review_class }).await
 }
 
 pub async fn new_page(State(state): State<AppState>, auth: Auth) -> AppResult<Response> {
@@ -210,15 +216,21 @@ pub async fn grid_page(
     Query(q): Query<SubjectQuery>,
 ) -> AppResult<Response> {
     let uid = auth.user.id;
-    let (class, subjects, roster_n) = auth
+    let (class, subjects, roster_n, review) = auth
         .db
         .call(move |c| {
             let class = model::class(c, uid, id)?;
-            Ok((class, model::subjects(c, id)?, model::roster(c, id)?.len()))
+            let subjects = model::subjects(c, id)?;
+            let mut review = std::collections::HashMap::new();
+            for s in &subjects {
+                let n = model::assessments(c, s.id)?.iter().filter(|a| a.needs_review > 0).count();
+                review.insert(s.id, n);
+            }
+            Ok((class, subjects, model::roster(c, id)?.len(), review))
         })
         .await?;
     let current = q.subject.and_then(|s| subjects.iter().find(|x| x.id == s)).or(subjects.first()).cloned();
-    render(&state, &auth, "grid.html", ctx! { class, subjects, current, roster_n }).await
+    render(&state, &auth, "grid.html", ctx! { class, subjects, current, roster_n, review }).await
 }
 
 pub async fn settings_page(State(state): State<AppState>, auth: Auth, Path(id): Path<i64>) -> AppResult<Response> {

@@ -519,3 +519,7 @@ tr.st-row-excused td { color: var(--gb-muted); }
   .dist-bar > div { background: CanvasText !important; }
   .swatch { forced-color-adjust: none; }
 }
+
+/* Assessments whose details Gradebook guessed */
+.gb-grid .a-head.needs-review { box-shadow: inset 0 3px 0 var(--bs-warning); }
+.gb-grid .a-head .review-dot { color: var(--bs-warning-text-emphasis, #997404); font-size: .75rem; }

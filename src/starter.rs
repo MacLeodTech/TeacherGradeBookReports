@@ -2036,6 +2036,7 @@ pub fn apply(tx: &Transaction, user_id: i64, p: &Parsed, clear_blanks: bool) -> 
                                 ),
                             );
                         }
+                        let mut review = if kind == Kind::Scored && col.out_of.is_none() { 2 } else { 0 };
                         // A new assessment goes in the category of the column before it.
                         let category = match category {
                             Some(c) => Some(c),
@@ -2055,12 +2056,13 @@ pub fn apply(tx: &Transaction, user_id: i64, p: &Parsed, clear_blanks: bool) -> 
                                         col.name
                                     ),
                                 );
+                                review = review.max(1);
                                 Some(cid)
                             }
                         };
                         tx.execute(
-                            "INSERT INTO assessments (subject_id, category_id, name, unit, out_of, weight, kind, due_date, include_in_report, sort)
-                             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                            "INSERT INTO assessments (subject_id, category_id, name, unit, out_of, weight, kind, due_date, include_in_report, sort, needs_review)
+                             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
                             params![
                                 subject_id,
                                 category,
@@ -2071,7 +2073,8 @@ pub fn apply(tx: &Transaction, user_id: i64, p: &Parsed, clear_blanks: bool) -> 
                                 kind.as_str(),
                                 su.due,
                                 su.on_report.unwrap_or(true),
-                                sort
+                                sort,
+                                review
                             ],
                         )?;
                         sort += 1;

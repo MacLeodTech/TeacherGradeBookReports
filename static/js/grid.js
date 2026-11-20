@@ -64,9 +64,9 @@
     const heads = A.map((a, i) => {
       const times = a.weight !== 1 ? ` ×${num(a.weight)}` : "";
       const meta = a.kind === "completion" ? "done?" : a.kind === "level" ? `level 1–4${times}` : `/${num(a.out_of)}${times}`;
-      return `<th class="a-head ${a.weight === 0 && a.kind !== "completion" ? "formative" : ""} ${a.include_in_report ? "" : "hidden-report"}" data-a="${a.id}" title="${esc(a.name)}${a.unit ? " · " + esc(a.unit) : ""}">
+      return `<th class="a-head ${a.needs_review ? "needs-review" : ""} ${a.weight === 0 && a.kind !== "completion" ? "formative" : ""} ${a.include_in_report ? "" : "hidden-report"}" data-a="${a.id}" title="${esc(a.name)}${a.unit ? " · " + esc(a.unit) : ""}">
         <div class="d-flex align-items-start gap-1">
-          <button class="a-name btn btn-link p-0 text-start" data-edit="${a.id}" ${readonly ? "disabled" : ""}>${esc(a.name)}</button>
+          <button class="a-name btn btn-link p-0 text-start" data-edit="${a.id}" ${readonly ? "disabled" : ""}>${esc(a.name)}</button>${a.needs_review ? ` <i class="bi bi-pencil-square review-dot" title="Details need checking" role="img" aria-label="Details need checking"></i>` : ""}
           ${readonly ? "" : `<div class="dropdown ms-auto"><button class="btn btn-link btn-sm p-0 a-menu" data-bs-toggle="dropdown" aria-label="Column menu"><i class="bi bi-three-dots-vertical"></i></button>
           <ul class="dropdown-menu dropdown-menu-end small">
             <li><button class="dropdown-item" data-fill="${a.id}" data-input="M">Mark blanks as missing</button></li>
@@ -130,6 +130,7 @@
       undoBtn.querySelector("span").textContent = data.undo ? `Undo (${data.undo.count} ${data.undo.source === "import" ? "imported " : ""}mark${data.undo.count === 1 ? "" : "s"})` : "Undo";
     }
     if (data.errors && data.errors.length) setStatus(`${data.errors.length} entr${data.errors.length === 1 ? "y wasn't" : "ies weren't"} understood. Point at a red cell to see why.`, "error");
+    renderReviewBanner();
     restoreFocus();
   }
 
@@ -232,6 +233,8 @@
     try {
       data = await api(`/api/subjects/${subjectId}/grid`);
       render();
+      // Arriving from the dashboard's "Review now": start going through them.
+      if (!readonly && modal && flagged().length && new URLSearchParams(location.search).get("review")) startReview();
     } catch (e) {
       root.innerHTML = `<div class="alert alert-danger m-3">${esc(e.message)}</div>`;
     }
@@ -367,6 +370,43 @@
   const form = document.getElementById("assessment-form");
   const modal = modalEl ? new bootstrap.Modal(modalEl) : null;
   let editingAssessment = null;
+  let review = null; // {skipped: Set, total, done} while stepping through assignments that need details
+  let dirty = false;
+
+  const flagged = () => data.assessments.filter((a) => a.needs_review > 0);
+  function renderReviewBanner() {
+    const el = document.getElementById("review-banner");
+    if (!el) return;
+    const n = readonly ? 0 : flagged().length;
+    el.innerHTML = n
+      ? `<div class="alert alert-warning d-flex flex-wrap align-items-center gap-2 py-2 mb-2" role="status"><i class="bi bi-pencil-square"></i>
+          <div class="me-auto"><strong>${n} assignment${n === 1 ? " needs" : "s need"} a few details.</strong> Gradebook guessed the category, weight or what it's out of.</div>
+          <button type="button" class="btn btn-warning btn-sm" data-action="start-review">Review ${n === 1 ? "it" : "them"}</button></div>`
+      : "";
+  }
+
+  function nextReview() {
+    const a = flagged().find((x) => !review.skipped.has(x.id));
+    if (!a) {
+      review = null;
+      modal.hide();
+      render();
+      setStatus("All set ✓");
+      return;
+    }
+    openModal(a, true);
+  }
+
+  function startReview() {
+    review = { skipped: new Set(), total: flagged().length };
+    nextReview();
+  }
+
+  function setSaveLabel() {
+    const btn = document.getElementById("assessment-save");
+    if (!review) return (btn.textContent = "Save assessment");
+    btn.textContent = editingAssessment.needs_review === 2 || dirty ? "Update" : "Looks good";
+  }
 
   function syncKind() {
     const completion = form.kind.value === "completion";
@@ -376,7 +416,9 @@
     form.querySelectorAll("[data-level-help]").forEach((el) => el.classList.toggle("d-none", !level));
   }
 
-  function openModal(a) {
+  function openModal(a, inReview) {
+    if (!inReview) review = null;
+    dirty = false;
     editingAssessment = a || null;
     form.reset();
     document.getElementById("assessment-error").textContent = "";
@@ -388,13 +430,25 @@
     modalEl.querySelector(".modal-title").textContent = a ? "Edit assessment" : "New assessment";
     modalEl.querySelector('[data-action="delete-assessment"]').classList.toggle("d-none", !a);
     document.getElementById("rescale-row").classList.add("d-none");
+    const help = document.getElementById("review-help");
+    help.classList.toggle("d-none", !review);
+    modalEl.querySelector('[data-action="review-skip"]').classList.toggle("d-none", !review);
+    form.out_of.required = false;
+    if (review) {
+      const pos = Math.min(review.total, review.total - flagged().filter((x) => !review.skipped.has(x.id)).length + 1);
+      modalEl.querySelector(".modal-title").textContent = `Check this assignment (${pos} of ${review.total})`;
+      help.innerHTML = a.needs_review === 2
+        ? `<div class="alert alert-warning small mb-0">Gradebook can't tell what <strong>${esc(a.name)}</strong> is out of. Enter it below. Marks stay as typed (17 with "out of 20" is 17/20). The other fields are best guesses, so change anything that's off.</div>`
+        : `<div class="alert alert-info small mb-0"><strong>${esc(a.name)}</strong> was added outside Gradebook, so the category, weight and due date are best guesses. Change anything that's off, then confirm.</div>`;
+    }
     if (a) {
       form.id.value = a.id;
       form.name.value = a.name;
       form.unit.value = a.unit;
       form.category_id.value = a.category_id ?? "";
       form.kind.value = a.kind;
-      form.out_of.value = num(a.out_of);
+      form.out_of.value = review && a.needs_review === 2 ? "" : num(a.out_of);
+      form.out_of.required = !!review && a.needs_review === 2 && a.kind === "scored";
       form.weight.value = num(a.weight);
       form.due_date.value = a.due_date || "";
       form.include_in_report.checked = a.include_in_report;
@@ -406,14 +460,22 @@
       }
     }
     syncKind();
+    setSaveLabel();
     modal.show();
-    setTimeout(() => form.name.focus(), 200);
+    setTimeout(() => (review && a.needs_review === 2 ? form.out_of : form.name).focus(), 200);
   }
 
   if (form) {
-    form.kind.addEventListener("change", syncKind);
+    form.kind.addEventListener("change", () => {
+      syncKind();
+      form.out_of.required = !!review && editingAssessment.needs_review === 2 && form.kind.value === "scored";
+    });
+    form.addEventListener("input", () => {
+      dirty = true;
+      setSaveLabel();
+    });
     form.out_of.addEventListener("input", () => {
-      const show = editingAssessment && editingAssessment.kind === "scored" && +form.out_of.value !== editingAssessment.out_of;
+      const show = !review && editingAssessment && editingAssessment.kind === "scored" && +form.out_of.value !== editingAssessment.out_of;
       document.getElementById("rescale-row").classList.toggle("d-none", !show);
     });
     form.addEventListener("submit", async (e) => {
@@ -427,12 +489,16 @@
         weight: form.weight.value === "" ? 1 : parseFloat(form.weight.value),
         due_date: form.due_date.value || null,
         include_in_report: form.include_in_report.checked,
-        rescale: form.rescale.checked,
+        rescale: !review && form.rescale.checked,
       };
       try {
         data = editingAssessment
           ? await api(`/api/assessments/${editingAssessment.id}`, body)
           : await api(`/api/subjects/${subjectId}/assessments`, body);
+        if (review) {
+          setStatus("Saved ✓");
+          return nextReview();
+        }
         modal.hide();
         render();
         setStatus("Saved ✓");
@@ -459,6 +525,19 @@
       } catch (err) {
         document.getElementById("assessment-error").textContent = err.message;
       }
+    });
+    modalEl.querySelector('[data-action="review-skip"]').addEventListener("click", () => {
+      review.skipped.add(editingAssessment.id);
+      nextReview();
+    });
+    modalEl.addEventListener("hidden.bs.modal", () => {
+      if (review) {
+        review = null;
+        render();
+      }
+    });
+    document.addEventListener("click", (e) => {
+      if (e.target.closest('[data-action="start-review"]')) startReview();
     });
     const addBtn = document.querySelector('[data-action="add-assessment"]');
     if (addBtn) addBtn.addEventListener("click", () => openModal(null));

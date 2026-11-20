@@ -10,7 +10,7 @@
 {% if subjects|length > 1 %}
 <ul class="nav nav-tabs mb-3 d-print-none">
   {% for s in subjects %}
-  <li class="nav-item"><a class="nav-link {% if current and s.id == current.id %}active{% endif %}" href="/classes/{{ class.id }}?subject={{ s.id }}">{{ s.name }}</a></li>
+  <li class="nav-item"><a class="nav-link {% if current and s.id == current.id %}active{% endif %}" href="/classes/{{ class.id }}?subject={{ s.id }}">{{ s.name }}{% if review[s.id|string] %} <span class="badge text-bg-warning" title="Assignments to review">{{ review[s.id|string] }}</span>{% endif %}</a></li>
   {% endfor %}
 </ul>
 {% endif %}
@@ -34,6 +34,7 @@
   </span>
   <button type="button" class="btn btn-outline-secondary btn-sm" data-action="shortcuts" title="Keyboard shortcuts (?)"><i class="bi bi-keyboard"></i><span class="visually-hidden">Keyboard shortcuts</span></button>
 </div>
+<div id="review-banner" class="d-print-none"></div>
 <div id="grid-warnings"></div>
 <div class="gb-grid-wrap" id="grid" data-subject="{{ current.id }}" data-class="{{ class.id }}" {% if class.archived %}data-readonly="1"{% endif %}>
   <div class="p-5 text-center text-muted"><div class="spinner-border spinner-border-sm"></div> Loading marks…</div>
@@ -59,12 +60,14 @@
         <div class="col-6"><label class="form-label">Due date</label><input class="form-control" type="date" name="due_date"></div>
         <div class="col-6 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" name="include_in_report" id="iir" checked><label class="form-check-label" for="iir">Show on reports</label></div></div>
         <div class="col-12 d-none" id="rescale-row"><div class="form-check"><input class="form-check-input" type="checkbox" name="rescale" id="rescale" checked><label class="form-check-label" for="rescale">Rescale existing marks to the new "out of" (keeps the same percentages)</label></div></div>
+        <div class="col-12 d-none" id="review-help"></div>
         <div class="col-12 text-danger small" id="assessment-error"></div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-danger me-auto d-none" data-action="delete-assessment">Delete</button>
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button class="btn btn-primary">Save assessment</button>
+        <button type="button" class="btn btn-outline-secondary d-none" data-action="review-skip">Skip for now</button>
+        <button class="btn btn-primary" id="assessment-save">Save assessment</button>
       </div>
     </form>
   </div>

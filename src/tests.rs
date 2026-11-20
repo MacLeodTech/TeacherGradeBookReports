@@ -998,3 +998,83 @@ async fn starter_spreadsheet(storage: Storage) {
     }
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// An assessment whose category was guessed is flagged for review; the flag survives saving and opening the
+/// workbook, shows on the dashboard, and clears when the teacher confirms it.
+#[tokio::test]
+async fn guessed_assessments_are_flagged_for_review() {
+    use crate::engine::Kind;
+    use crate::starter::{AssessmentSpec as A, SheetSpec, StudentSpec as S, Template};
+    let (app, dir, _state) = app_with(Storage::Persistent, |_| {}).await;
+    let mut c = Client::new(app);
+    c.login("admin", "Password1234").await;
+    c.get("/setup").await.ok();
+    c.post(
+        "/settings",
+        &[
+            ("setup", "1"),
+            ("mode", "secondary"),
+            ("active_periods", "2"),
+            ("primary_color", "#003F5A"),
+            ("accent_color", "#B1D2E1"),
+            ("term_name", "Semester 1"),
+        ],
+    )
+    .await
+    .redirects_to("/");
+
+    let sheet = SheetSpec {
+        title: "Period 1".into(),
+        class: "Grade 11 Biology".into(),
+        period: Some(1),
+        categories: vec![("Knowledge".into(), 60.0), ("Application".into(), 40.0)],
+        // "Pop Quiz" is a new column with no category on the Setup tab, as if typed in Excel.
+        assessments: vec![A::new("Quiz 1", "Knowledge", 20.0, 1.0, Kind::Scored), A::new("Pop Quiz", "", 10.0, 1.0, Kind::Scored)],
+        students: vec![S { last: "Lee".into(), first: "Ana".into(), ..Default::default() }],
+        marks: vec![vec!["17".to_string(), "8".to_string()]],
+        ..Default::default()
+    };
+    let t = Template { missing_policy: crate::engine::MissingPolicy::Ignore, sheets: vec![sheet], example: None, saved: None };
+    let bytes = crate::starter::build(&t).unwrap();
+    let r = c.upload("/import", "file", "mine.xlsx", &bytes).await;
+    let url = r.location.clone().unwrap();
+    c.post(&url, &[]).await.redirects_to("/");
+
+    let flags = |g: &Value| -> Vec<(String, i64)> {
+        g["assessments"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|a| (a["name"].as_str().unwrap().to_string(), a["needs_review"].as_i64().unwrap()))
+            .collect()
+    };
+    let page = c.get("/classes/1").await.text();
+    let sid: i64 = between(&page, "data-subject=\"", "\"").parse().unwrap();
+    let g = c.get(&format!("/api/subjects/{sid}/grid")).await.json();
+    assert_eq!(flags(&g), [("Quiz 1".to_string(), 0), ("Pop Quiz".to_string(), 1)]);
+
+    let home = c.get("/").await.text();
+    assert!(
+        home.contains("1 assignment needs a few details") && home.contains("/classes/1?review=1"),
+        "{}",
+        between(&home, "<main", "</main>")
+    );
+
+    // The flag is part of the saved workbook.
+    let saved = c.get("/workbook.xlsx").await;
+    c.upload("/workbook", "file", "saved.xlsx", &saved.body).await.redirects_to("/");
+    let page = c.get("/classes/2").await.text();
+    let sid2: i64 = between(&page, "data-subject=\"", "\"").parse().unwrap();
+    let g = c.get(&format!("/api/subjects/{sid2}/grid")).await.json();
+    assert_eq!(flags(&g)[1], ("Pop Quiz".to_string(), 1), "opened workbook keeps the flag");
+
+    // Confirming it from the popup clears it, and keeps the marks as typed.
+    let aid = g["assessments"][1]["id"].as_i64().unwrap();
+    let body = json!({"name": "Pop Quiz", "unit": "", "out_of": 10, "weight": 1, "kind": "scored",
+        "category_id": g["categories"][1]["id"], "due_date": null, "include_in_report": true, "rescale": false});
+    let g = c.post_json(&format!("/api/assessments/{aid}"), body).await.json();
+    assert_eq!(flags(&g)[1].1, 0);
+    assert_eq!(g["cells"][g["students"][0]["id"].to_string().trim_matches('"')][aid.to_string()]["text"], "8");
+    assert!(!c.get("/").await.text().contains("a few details"));
+    let _ = std::fs::remove_dir_all(dir);
+}
