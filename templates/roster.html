@@ -4,7 +4,7 @@
 {% block content %}
 {{ class_tabs(class, "students") }}
 <div class="row g-4">
-  <div class="col-lg-7">
+  <div class="col-lg-7 col-print-12">
     <div class="card">
       <div class="card-header fw-semibold">{{ roster|length }} student{% if roster|length != 1 %}s{% endif %}</div>
       {% if roster %}
@@ -33,7 +33,7 @@
     </div>
   </div>
   {% if not class.archived %}
-  <div class="col-lg-5">
+  <div class="col-lg-5 d-print-none">
     <div class="card mb-3">
       <div class="card-header fw-semibold">Add one student</div>
       <div class="card-body">

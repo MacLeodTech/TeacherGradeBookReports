@@ -6,7 +6,7 @@
 <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
   <h1 class="h3 mb-0 me-3">{{ class.name }}{% if class.course_code and class.course_code != class.name %} <small class="text-muted">{{ class.course_code }}</small>{% endif %}</h1>
   {% if class.archived %}<span class="badge text-bg-secondary">Archived term (read-only)</span>{% endif %}
-  <ul class="nav nav-pills ms-auto">
+  <ul class="nav nav-pills ms-auto d-print-none">
     {% for key, href, icon, text in [
       ("grid", "", "table", "Marks"),
       ("students", "/students", "people", "Students"),

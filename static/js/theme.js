@@ -39,6 +39,16 @@
   }
 
   apply();
+  // Always print in the light theme: dark pages waste ink and print badly.
+  let beforePrint = null;
+  window.addEventListener("beforeprint", () => {
+    beforePrint = document.documentElement.getAttribute("data-bs-theme");
+    document.documentElement.setAttribute("data-bs-theme", "light");
+  });
+  window.addEventListener("afterprint", () => {
+    if (beforePrint) document.documentElement.setAttribute("data-bs-theme", beforePrint);
+    beforePrint = null;
+  });
   dark.addEventListener("change", () => { if (pref() === "auto") apply(); });
   // Other tabs follow a change made in this one.
   window.addEventListener("storage", (e) => { if (e.key === KEY) apply(); });
