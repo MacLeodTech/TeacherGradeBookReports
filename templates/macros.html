@@ -6,7 +6,7 @@
 <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
   <h1 class="h3 mb-0 me-3">{{ class.name }}{% if class.course_code and class.course_code != class.name %} <small class="text-muted">{{ class.course_code }}</small>{% endif %}</h1>
   {% if class.archived %}<span class="badge text-bg-secondary">Archived term (read-only)</span>{% endif %}
-  <ul class="nav nav-pills ms-auto">
+  <ul class="nav nav-pills ms-auto d-print-none">
     {% for key, href, icon, text in [
       ("grid", "", "table", "Marks"),
       ("students", "/students", "people", "Students"),
@@ -16,5 +16,15 @@
     <li class="nav-item"><a class="nav-link {% if active == key %}active{% endif %}" href="/classes/{{ class.id }}{{ href }}"><i class="bi bi-{{ icon }}"></i> {{ text }}</a></li>
     {% endfor %}
   </ul>
+</div>
+{% endmacro %}
+
+{# A friendly empty page: what's missing, why, and the next step (the caller's buttons). #}
+{% macro empty(icon, title, text, small=false) %}
+<div class="text-center {% if small %}py-4{% else %}py-5{% endif %} px-3 gb-empty">
+  <i class="bi bi-{{ icon }} {% if small %}fs-1{% else %}display-4{% endif %}" aria-hidden="true"></i>
+  <h2 class="h5 mt-3">{{ title }}</h2>
+  <p class="text-muted mx-auto gb-empty-text">{{ text }}</p>
+  <div class="d-flex flex-wrap justify-content-center gap-2">{{ caller() }}</div>
 </div>
 {% endmacro %}

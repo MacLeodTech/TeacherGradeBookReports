@@ -103,7 +103,7 @@
   // Character counters: <textarea data-count>.
   document.querySelectorAll("textarea[data-count]").forEach((ta) => {
     const out = document.createElement("div");
-    out.className = "form-text text-end";
+    out.className = "form-text text-end d-print-none";
     ta.after(out);
     const sync = () => (out.textContent = ta.value.length + " characters");
     ta.addEventListener("input", sync);
@@ -171,4 +171,18 @@
       setTimeout(() => setUnsaved(false, "Saved to your workbook at " + t), 800);
     })
   );
+
+  // Print buttons, and the date in the printed footer.
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("[data-print]")) window.print();
+  });
+  // Collapsed sections print open (except ones hidden from print).
+  let opened = [];
+  window.addEventListener("afterprint", () => { opened.forEach((d) => { d.open = false; }); opened = []; });
+  window.addEventListener("beforeprint", () => {
+    opened = [...document.querySelectorAll("details:not([open])")].filter((d) => !d.closest(".d-print-none"));
+    opened.forEach((d) => { d.open = true; });
+    const d = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+    document.querySelectorAll("[data-print-date]").forEach((el) => { el.textContent = d; });
+  });
 })();

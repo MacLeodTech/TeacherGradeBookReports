@@ -1,9 +1,12 @@
 {% extends "base.html" %}
-{% from "macros.html" import grade %}
+{% from "macros.html" import grade, empty %}
 {% block title %}My classes{% endblock %}
 {% block content %}
 {% if not term %}
-<div class="alert alert-info">You don't have a current term. <a href="/terms">Create or choose one</a> to add classes.</div>
+<h1 class="h3 mb-4">My classes</h1>
+{% call empty("calendar3", "No current term", "Classes belong to a term (or semester). Create one, or pick an existing one as current, to see and add classes here.") %}
+  <a class="btn btn-primary" href="/terms"><i class="bi bi-calendar-plus"></i> Set up a term</a>
+{% endcall %}
 {% else %}
 <div class="d-flex flex-wrap align-items-center gap-2 mb-4">
   <div>

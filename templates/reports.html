@@ -1,9 +1,15 @@
 {% extends "base.html" %}
-{% from "macros.html" import class_tabs, grade %}
+{% from "macros.html" import class_tabs, grade, empty %}
 {% block title %}{{ class.name }} · Reports{% endblock %}
 {% block content %}
 {{ class_tabs(class, "reports") }}
-<form method="post" action="/classes/{{ class.id }}/reports">
+{% if not rows %}
+{% call empty("file-earmark-person", "No reports to make yet", "Reports are made from each student's marks and comments. Add your students and some marks first.") %}
+  <a class="btn btn-primary" href="/classes/{{ class.id }}/students"><i class="bi bi-person-plus"></i> Add students</a>
+  <a class="btn btn-outline-secondary" href="/settings#branding"><i class="bi bi-palette"></i> Set up the report look</a>
+{% endcall %}
+{% else %}
+<form method="post" action="/classes/{{ class.id }}/reports" data-report-check>
   <input type="hidden" name="csrf_token" value="{{ csrf }}">
   <div class="card mb-3">
     <div class="card-body row g-3 align-items-center">
@@ -23,7 +29,10 @@
   <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
     <button type="button" class="btn btn-sm btn-outline-secondary" data-check-where="needs">Select students needing a new report</button>
     <span class="small text-muted ms-2">A report is "needed" if none has been downloaded yet, or marks changed since the last one.</span>
-    <button class="btn btn-primary ms-auto"><i class="bi bi-file-earmark-zip"></i> Download selected as ZIP</button>
+    <div class="ms-auto d-flex flex-wrap gap-2">
+      <button class="btn btn-outline-primary" name="format" value="zip" title="A separate PDF for each student, in one ZIP file"><i class="bi bi-file-earmark-zip"></i> Download as ZIP</button>
+      <button class="btn btn-primary" name="format" value="pdf" title="All the selected reports in one PDF, each starting on a new page"><i class="bi bi-printer"></i> Download as one PDF to print</button>
+    </div>
   </div>
   <div class="card">
     <table class="table table-hover align-middle mb-0">
@@ -34,7 +43,7 @@
       <tbody>
         {% for r in rows %}
         <tr>
-          <td><input class="form-check-input" type="checkbox" name="student" value="{{ r.id }}" data-needs="{{ 1 if r.needs else 0 }}" {% if r.needs %}checked{% endif %}></td>
+          <td><input class="form-check-input" type="checkbox" name="student" value="{{ r.id }}" aria-label="Include {{ r.name }}" data-needs="{{ 1 if r.needs else 0 }}" data-name="{{ r.name }}" data-missing="{{ r.missing }}" data-pending="{{ r.pending }}" data-marked="{{ r.marked }}" data-no-comment="{{ 1 if r.comments < r.subjects else 0 }}" {% if r.needs %}checked{% endif %}></td>
           <td><a href="/classes/{{ class.id }}/students/{{ r.id }}">{{ r.name }}</a></td>
           <td>{{ grade(r.avg, r.label, r.color) }}</td>
           <td>{% if r.missing %}<span class="text-danger">{{ r.missing }}</span>{% else %}<span class="text-muted">0</span>{% endif %}{% if r.pending %} <span class="small text-muted">(+{{ r.pending }} to mark)</span>{% endif %}</td>
@@ -49,4 +58,22 @@
     </table>
   </div>
 </form>
+{% endif %}
+
+<div class="modal fade" id="report-check" tabindex="-1" aria-labelledby="report-check-title" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><h2 class="modal-title h5" id="report-check-title">Before you download</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+      <div class="modal-body">
+        <p class="mb-2">Some of these reports may not be ready yet:</p>
+        <div id="report-check-list"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Go back</button>
+        <button type="button" class="btn btn-primary" id="report-check-go">Download anyway</button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
+{% block scripts %}<script src="/static/js/reports.js"></script>{% endblock %}

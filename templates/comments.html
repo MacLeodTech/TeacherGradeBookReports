@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Comment bank{% endblock %}
+{% from "macros.html" import empty %}
 {% block content %}
 <h1 class="h3">Comment bank</h1>
 <p class="text-muted">Comments you reuse. Insert them from any student's page. Placeholders are filled in for each student:
@@ -13,7 +14,7 @@
       <datalist id="tags">{% for t in items|map(attribute="tag")|unique %}<option value="{{ t }}">{% endfor %}</datalist>
       <label class="form-label">Comment(s), one per line</label>
       <textarea class="form-control mb-2" name="body" rows="6" placeholder="{first} consistently shows strong problem-solving skills.&#10;{They} {is} encouraged to check {their} work carefully."></textarea>
-      <button class="btn btn-primary">Add</button>
+      <button class="btn btn-primary">Add to comment bank</button>
     </form>
   </div>
   <div class="col-lg-7">
@@ -23,12 +24,14 @@
       {% for c in group %}
       <li class="list-group-item d-flex gap-2 align-items-start">
         <span class="flex-grow-1">{{ c.body }}</span>
-        <form method="post" action="/comments/{{ c.id }}/delete"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn btn-sm btn-link text-danger p-0" title="Delete"><i class="bi bi-trash"></i></button></form>
+        <form method="post" action="/comments/{{ c.id }}/delete"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn btn-sm btn-link text-danger p-0" title="Delete" aria-label="Delete this comment"><i class="bi bi-trash"></i></button></form>
       </li>
       {% endfor %}
     </ul>
     {% else %}
-    <p class="text-muted">Your comment bank is empty.</p>
+    {% call empty("chat-square-quote", "Your comment bank is empty", "Save the comments you write again and again, then add them to any student's report with two clicks. Names and pronouns are filled in for each student.") %}
+      <span class="small text-muted">Add your first ones with the form on the left.</span>
+    {% endcall %}
     {% endfor %}
   </div>
 </div>

@@ -6,6 +6,24 @@
   const KEY = "gb-theme";
   const ICONS = { light: "bi-sun", dark: "bi-moon-stars", auto: "bi-circle-half" };
   const dark = window.matchMedia("(prefers-color-scheme: dark)");
+  // High contrast: on if chosen here, or if the computer asks for more contrast.
+  const CONTRAST = "gb-contrast";
+  const moreContrast = window.matchMedia("(prefers-contrast: more)");
+  function contrastOn() {
+    let v = null;
+    try { v = localStorage.getItem(CONTRAST); } catch (_) { /* storage blocked */ }
+    return v === "more" || (v !== "normal" && moreContrast.matches);
+  }
+  function applyContrast() {
+    const on = contrastOn();
+    if (on) document.documentElement.setAttribute("data-contrast", "more");
+    else document.documentElement.removeAttribute("data-contrast");
+    document.querySelectorAll("[data-contrast-toggle]").forEach((b) => {
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      b.classList.toggle("active", on);
+    });
+    document.querySelectorAll("[data-contrast-icon]").forEach((i) => { i.className = "bi me-2 " + (on ? "bi-check-square" : "bi-square"); });
+  }
 
   function pref() {
     let v = null;
@@ -39,10 +57,32 @@
   }
 
   apply();
+  applyContrast();
+  moreContrast.addEventListener("change", applyContrast);
+  // Always print in the light theme: dark pages waste ink and print badly.
+  let beforePrint = null;
+  window.addEventListener("beforeprint", () => {
+    beforePrint = document.documentElement.getAttribute("data-bs-theme");
+    document.documentElement.setAttribute("data-bs-theme", "light");
+  });
+  window.addEventListener("afterprint", () => {
+    if (beforePrint) document.documentElement.setAttribute("data-bs-theme", beforePrint);
+    beforePrint = null;
+  });
   dark.addEventListener("change", () => { if (pref() === "auto") apply(); });
   // Other tabs follow a change made in this one.
-  window.addEventListener("storage", (e) => { if (e.key === KEY) apply(); });
-  document.addEventListener("DOMContentLoaded", () => { mark(pref()); tint(); });
+  window.addEventListener("storage", (e) => { if (e.key === KEY) apply(); if (e.key === CONTRAST) applyContrast(); });
+  document.addEventListener("DOMContentLoaded", () => { mark(pref()); tint(); applyContrast(); });
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest("[data-contrast-toggle]")) return;
+    const next = contrastOn() ? "normal" : "more";
+    try {
+      // Matching the computer's own setting needs no stored choice.
+      if ((next === "more") === moreContrast.matches) localStorage.removeItem(CONTRAST);
+      else localStorage.setItem(CONTRAST, next);
+    } catch (_) { /* storage blocked */ }
+    applyContrast();
+  });
   document.addEventListener("click", (e) => {
     const b = e.target.closest("[data-theme-value]");
     if (!b) return;

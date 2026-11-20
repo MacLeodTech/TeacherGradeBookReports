@@ -1,12 +1,14 @@
 {% extends "base.html" %}
-{% from "macros.html" import class_tabs %}
+{% from "macros.html" import class_tabs, empty %}
 {% block title %}{{ class.name }}{% endblock %}
 {% block container %}container-fluid px-lg-4{% endblock %}
+{% block body_class %}print-wide{% endblock %}
 {% block content %}
 {{ class_tabs(class, "grid") }}
+{% if current and subjects|length > 1 %}<h2 class="h5 d-none d-print-block">{{ current.name }}</h2>{% endif %}
 
 {% if subjects|length > 1 %}
-<ul class="nav nav-tabs mb-3">
+<ul class="nav nav-tabs mb-3 d-print-none">
   {% for s in subjects %}
   <li class="nav-item"><a class="nav-link {% if current and s.id == current.id %}active{% endif %}" href="/classes/{{ class.id }}?subject={{ s.id }}">{{ s.name }}</a></li>
   {% endfor %}
@@ -14,28 +16,33 @@
 {% endif %}
 
 {% if roster_n == 0 %}
-<div class="alert alert-info">This class has no students yet. <a href="/classes/{{ class.id }}/students">Add students</a> or <a href="/import?class={{ class.id }}">import a spreadsheet</a>.</div>
+{% call empty("people", "No students in this class yet", "Add your class list first. You can type or paste names, or bring in a spreadsheet with marks already in it.") %}
+  <a class="btn btn-primary" href="/classes/{{ class.id }}/students"><i class="bi bi-person-plus"></i> Add students</a>
+  <a class="btn btn-outline-secondary" href="/import?class={{ class.id }}"><i class="bi bi-upload"></i> Import a spreadsheet</a>
+{% endcall %}
 {% elif current %}
-<div class="d-flex flex-wrap gap-2 align-items-center mb-2 grid-toolbar">
+<div class="d-flex flex-wrap gap-2 align-items-center mb-2 grid-toolbar d-print-none">
   {% if not class.archived %}
   <button class="btn btn-primary btn-sm" data-action="add-assessment"><i class="bi bi-plus-lg"></i> Add assessment</button>
   <button class="btn btn-outline-secondary btn-sm" data-action="undo" disabled><i class="bi bi-arrow-counterclockwise"></i> <span>Undo</span></button>
   <a class="btn btn-outline-secondary btn-sm" href="/import?class={{ class.id }}"><i class="bi bi-upload"></i> Import</a>
   {% endif %}
+  <button type="button" class="btn btn-outline-secondary btn-sm" data-print title="Print the mark grid (Ctrl+P)"><i class="bi bi-printer"></i> Print</button>
   <span class="small text-muted ms-2" id="grid-status"></span>
   <span class="ms-auto small text-muted d-none d-md-inline">
     Type a mark (17, 17/20, 85%) · <kbd>M</kbd> missing · <kbd>X</kbd> excused · <kbd>?</kbd> to mark · add <kbd>L</kbd> for late · paste from Excel
   </span>
+  <button type="button" class="btn btn-outline-secondary btn-sm" data-action="shortcuts" title="Keyboard shortcuts (?)"><i class="bi bi-keyboard"></i><span class="visually-hidden">Keyboard shortcuts</span></button>
 </div>
 <div id="grid-warnings"></div>
 <div class="gb-grid-wrap" id="grid" data-subject="{{ current.id }}" data-class="{{ class.id }}" {% if class.archived %}data-readonly="1"{% endif %}>
   <div class="p-5 text-center text-muted"><div class="spinner-border spinner-border-sm"></div> Loading marks…</div>
 </div>
 
-<div class="modal fade" id="assessment-modal" tabindex="-1">
+<div class="modal fade" id="assessment-modal" tabindex="-1" aria-labelledby="assessment-title" aria-hidden="true">
   <div class="modal-dialog">
     <form class="modal-content" id="assessment-form">
-      <div class="modal-header"><h5 class="modal-title">Assessment</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-header"><h2 class="modal-title h5" id="assessment-title">Assessment</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
       <div class="modal-body row g-3">
         <input type="hidden" name="id">
         <div class="col-12"><label class="form-label">Name</label><input class="form-control" name="name" required maxlength="120"></div>
@@ -56,14 +63,59 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-danger me-auto d-none" data-action="delete-assessment">Delete</button>
-        <button type="button" class="btn btn-link" data-bs-dismiss="modal">Cancel</button>
-        <button class="btn btn-primary">Save</button>
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary">Save assessment</button>
       </div>
     </form>
   </div>
 </div>
+<div class="modal fade" id="shortcuts-modal" tabindex="-1" aria-labelledby="shortcuts-title" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><h2 class="modal-title h5" id="shortcuts-title"><i class="bi bi-keyboard"></i> Keyboard shortcuts</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+      <div class="modal-body row g-4 small">
+        <div class="col-md-6">
+          <h3 class="h6">Moving around</h3>
+          <table class="table table-sm keys mb-0"><tbody>
+            <tr><td><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd></td><td>Move between cells</td></tr>
+            <tr><td><kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd></td><td>Next / previous column</td></tr>
+          </tbody></table>
+          <h3 class="h6 mt-3">Entering marks</h3>
+          <table class="table table-sm keys mb-0"><tbody>
+            <tr><td>Start typing</td><td>Replace the cell</td></tr>
+            <tr><td><kbd>Enter</kbd> or <kbd>F2</kbd></td><td>Change the cell's mark</td></tr>
+            <tr><td><kbd>Enter</kbd> / <kbd>Shift</kbd>+<kbd>Enter</kbd></td><td>Save, then move down / up</td></tr>
+            <tr><td><kbd>Tab</kbd></td><td>Save, then move right</td></tr>
+            <tr><td><kbd>Esc</kbd></td><td>Cancel the change</td></tr>
+            <tr><td><kbd>Delete</kbd></td><td>Clear the cell</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>V</kbd></td><td>Paste a block from Excel or Google Sheets</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>Undo the last change</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>Print the grid</td></tr>
+          </tbody></table>
+        </div>
+        <div class="col-md-6">
+          <h3 class="h6">What you can type</h3>
+          <table class="table table-sm keys mb-0"><tbody>
+            <tr><td><kbd>17</kbd></td><td>17 out of the column's total</td></tr>
+            <tr><td><kbd>17/20</kbd></td><td>17 out of 20 (rescaled if the column is out of something else)</td></tr>
+            <tr><td><kbd>85%</kbd></td><td>A percentage</td></tr>
+            <tr><td><kbd>15L</kbd></td><td>Handed in late (counts as normal, noted)</td></tr>
+            <tr><td><kbd>M</kbd></td><td>Missing</td></tr>
+            <tr><td><kbd>X</kbd></td><td>Excused (not counted)</td></tr>
+            <tr><td><kbd>?</kbd></td><td>Handed in, to mark</td></tr>
+            <tr><td><kbd>1</kbd>–<kbd>4</kbd>, <kbd>3+</kbd>, <kbd>R</kbd></td><td>Levels, in a Level 1–4 column</td></tr>
+            <tr><td><kbd>Y</kbd> / <kbd>N</kbd></td><td>Done / not done (missing), in a done column</td></tr>
+          </tbody></table>
+          <p class="text-muted mt-3 mb-0">After you type a mark, the line above the grid shows how it was read.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 {% else %}
-<div class="alert alert-info">This class has no subjects. <a href="/classes/{{ class.id }}/settings">Add one</a>.</div>
+{% call empty("journal-plus", "This class has no subjects", "Marks are kept per subject. Add at least one (for a secondary course, one subject named after the course is enough).") %}
+  <a class="btn btn-primary" href="/classes/{{ class.id }}/settings"><i class="bi bi-plus-lg"></i> Add a subject</a>
+{% endcall %}
 {% endif %}
 {% endblock %}
 {% block scripts %}<script src="/static/js/grid.js"></script>{% endblock %}

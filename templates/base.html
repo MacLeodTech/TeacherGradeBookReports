@@ -4,6 +4,8 @@
   <li><button type="button" class="dropdown-item" data-theme-value="light"><i class="bi bi-sun me-2"></i>Light</button></li>
   <li><button type="button" class="dropdown-item" data-theme-value="dark"><i class="bi bi-moon-stars me-2"></i>Dark</button></li>
   <li><button type="button" class="dropdown-item" data-theme-value="auto"><i class="bi bi-circle-half me-2"></i>Match my computer</button></li>
+  <li><hr class="dropdown-divider"></li>
+  <li><button type="button" class="dropdown-item" data-contrast-toggle aria-pressed="false" title="Stronger text, borders and focus outlines. Also turns on by itself when your computer asks for more contrast."><i class="bi bi-square me-2" data-contrast-icon></i>High contrast</button></li>
 </ul>
 {% endmacro %}
 <!doctype html>
@@ -24,7 +26,7 @@
 </head>
 <body class="{% block body_class %}{% endblock %}">
 {% if user %}
-<nav class="navbar navbar-expand-lg navbar-dark gb-nav">
+<nav class="navbar navbar-expand-lg navbar-dark gb-nav d-print-none">
   <div class="container-fluid">
     <a class="navbar-brand fw-semibold" href="/"><i class="bi bi-journal-check"></i> Gradebook</a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav" aria-label="Menu"><span class="navbar-toggler-icon"></span></button>
@@ -86,7 +88,7 @@
   </div>
 </nav>
 {% if workspace %}
-<div class="gb-privacy-bar{% if workspace.unsaved %} unsaved{% endif %}" id="ws-bar">
+<div class="gb-privacy-bar d-print-none{% if workspace.unsaved %} unsaved{% endif %}" id="ws-bar">
   <div class="container-fluid d-flex flex-wrap align-items-center gap-2 small py-1">
     <i class="bi bi-shield-lock"></i>
     <span>Student information isn't saved {% if local %}on this computer{% else %}on the server{% endif %}: it's only kept until you {% if local %}quit Gradebook{% else %}sign out, or after {{ idle_minutes }} minutes without activity{% endif %}. Save your workbook to keep your work.</span>
@@ -96,7 +98,7 @@
 </div>
 {% endif %}
 {% else %}
-<div class="gb-theme-corner dropdown">
+<div class="gb-theme-corner dropdown d-print-none">
   <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Light or dark theme">
     <i class="bi bi-circle-half" data-theme-icon></i><span class="visually-hidden">Theme</span>
   </button>
@@ -105,12 +107,13 @@
 {% endif %}
 <main class="{% block container %}container{% endblock %} py-4">
   {% for f in flashes %}
-  <div class="alert alert-{{ f.kind }} alert-dismissible fade show" role="alert">
+  <div class="alert alert-{{ f.kind }} alert-dismissible fade show d-print-none" role="alert">
     {{ f.msg }}
     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
   </div>
   {% endfor %}
   {% block content %}{% endblock %}
+  {% if user %}<p class="gb-print-footer d-none d-print-block">{% if user.full_name %}{{ user.full_name }} · {% endif %}{% if nav_term %}{{ nav_term.name }} · {% endif %}Printed <span data-print-date></span></p>{% endif %}
 </main>
 <script src="/static/vendor/bootstrap.bundle.min.js"></script>
 <script src="/static/js/app.js"></script>

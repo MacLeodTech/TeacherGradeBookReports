@@ -7,7 +7,8 @@
   <a class="btn btn-sm btn-outline-secondary" href="/classes/{{ class.id }}"><i class="bi bi-arrow-left"></i> {{ class.name }}</a>
   <h1 class="h3 mb-0 mx-2">{{ full_name }}</h1>
   {% if student.student_number %}<span class="text-muted">#{{ student.student_number }}</span>{% endif %}
-  <div class="ms-auto btn-group">
+  <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" data-print title="Print this page (Ctrl+P)"><i class="bi bi-printer"></i> Print</button>
+  <div class="btn-group">
     {% if prev %}<a class="btn btn-sm btn-outline-secondary" href="/classes/{{ class.id }}/students/{{ prev[0] }}" title="{{ prev[1] }}"><i class="bi bi-chevron-left"></i> Previous</a>{% endif %}
     {% if next %}<a class="btn btn-sm btn-outline-secondary" href="/classes/{{ class.id }}/students/{{ next[0] }}" title="{{ next[1] }}">Next <i class="bi bi-chevron-right"></i></a>{% endif %}
   </div>
@@ -78,14 +79,14 @@
             </div>
             {% endif %}
           </div>
-          <textarea class="form-control mb-2" id="c{{ s.subject.id }}" name="comment" rows="4" maxlength="4000" data-count {% if class.archived %}disabled{% endif %}>{{ s.comment }}</textarea>
+          <textarea class="form-control mb-2" id="c{{ s.subject.id }}" name="comment" rows="4" maxlength="4000" placeholder="No comment yet" data-count {% if class.archived %}disabled{% endif %}>{{ s.comment }}</textarea>
           <label class="form-label fw-semibold" for="n{{ s.subject.id }}">Next steps</label>
-          <textarea class="form-control mb-2" id="n{{ s.subject.id }}" name="next_steps" rows="2" maxlength="4000" {% if class.archived %}disabled{% endif %}>{{ s.next_steps }}</textarea>
+          <textarea class="form-control mb-2" id="n{{ s.subject.id }}" name="next_steps" rows="2" maxlength="4000" placeholder="None yet" {% if class.archived %}disabled{% endif %}>{{ s.next_steps }}</textarea>
           {% if not class.archived %}<button class="btn btn-sm btn-primary">Save comment</button>{% endif %}
         </form>
 
         {% if not class.archived %}
-        <details class="mt-3">
+        <details class="mt-3 d-print-none">
           <summary class="small">Set the final grade yourself{% if s.result.overridden %} (currently {{ s.override_pct }}%){% endif %}</summary>
           <form method="post" action="/classes/{{ class.id }}/students/{{ student.id }}/override" class="row g-2 mt-1">
             <input type="hidden" name="csrf_token" value="{{ csrf }}">
@@ -126,7 +127,7 @@
       </div>
     </div>
 
-    <details class="card mb-4">
+    <details class="card mb-4 d-print-none">
       <summary class="card-header">Student details</summary>
       <div class="card-body">
         <form method="post" action="/classes/{{ class.id }}/students/{{ student.id }}/details" class="row g-2">
@@ -146,7 +147,7 @@
     </details>
   </div>
 
-  <div class="col-xl-5">
+  <div class="col-xl-5 d-print-none">
     <div class="card sticky-xl-top report-panel">
       <div class="card-header fw-semibold"><i class="bi bi-file-earmark-pdf"></i> Report</div>
       <div class="card-body">

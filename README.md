@@ -15,7 +15,15 @@ A self-hosted gradebook for teachers that produces professional PDF progress rep
 - **Weights like report-card software:** categories such as Knowledge/Thinking/Communication/Application
   plus a 30% final, with relative weights per assessment and formative (weight 0) work.
 - **Click a student** to see just their marks, write comments (with a reusable comment bank), rate
-  learning skills, and preview or download their report. Or download a whole class as a ZIP.
+  learning skills, and preview or download their report. Or download a whole class: a ZIP with one PDF
+  each, or one PDF to print with each student starting on a new page. Before it downloads, Gradebook lists
+  anyone with no comment, missing or unmarked work, or too few marks.
+- **Reports in your school colours.** Pick your school's two colours (or take them from your logo): the
+  main colour fills the banners, the second is the trim, and tables use soft tints of the main colour, so
+  any pair stays readable. A live preview and a sample report show the result before you save.
+- **Easy on the eyes and the keyboard:** light, dark and high-contrast modes (high contrast also follows
+  the computer's setting), clean printouts of the mark grid and student pages, and a keyboard shortcut list
+  in the grid (press `?`). After you type a mark, the grid says how it was read.
 - **Elementary, high school or university:** one class with many subjects; 1–3 periods plus a prep (for
   LTO and part-time teachers too); or any number of courses.
 - **A starter spreadsheet** to get going: download it from **Import**. Each class is a plain grid (class name
@@ -100,7 +108,8 @@ docker compose up -d --build
 ```
 
 Open http://localhost:8000 and sign in as the admin. The first sign-in walks through setup (teaching level,
-periods, report colours, first term). Add more teacher accounts under **Accounts**.
+periods, school colours, first term). The main school colour fills the report banners, the second is
+used for trim, and tables use soft tints of the main colour, so any pair of colours stays readable. Add more teacher accounts under **Accounts**.
 
 Put it behind HTTPS (a reverse proxy such as Caddy, Traefik or nginx) before using real student data, and
 set `TRUST_PROXY=true` when you do.
@@ -186,6 +195,7 @@ COOKIE_SECURE=false DB_PATH=./dev.db ADMIN_USERNAME=admin ADMIN_PASSWORD=Passwor
 | `src/db.rs` | Database, migrations, in-memory teacher workspaces and the write guard |
 | `src/local.rs`, `src/oidc.rs`, `src/audit.rs` | Local mode, board single sign-on, audit and retention |
 | `src/report.rs`, `report/report.typ` | PDF reports (Typst, fonts embedded) |
+| `src/color.rs` | Report colours: the school's two colours turned into a readable palette |
 | `static/js/grid.js` | The mark grid |
 | `migrations/` | SQL schema |
 | `docs/ROADMAP.md` | Design notes and status |
