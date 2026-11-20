@@ -1078,3 +1078,73 @@ async fn guessed_assessments_are_flagged_for_review() {
     assert!(!c.get("/").await.text().contains("a few details"));
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// The guided setup creates classes, students and assignments in one go, flags what it had to guess,
+/// and rejects what doesn't fit (a taken period, a duplicate name).
+#[tokio::test]
+async fn guided_setup_creates_everything_in_one_step() {
+    let (app, dir, state) = app_with(Storage::Memory, |_| {}).await;
+    let mut c = Client::new(app);
+    c.login("admin", "Password1234").await;
+    c.get("/setup").await.ok();
+    c.post(
+        "/settings",
+        &[
+            ("setup", "1"),
+            ("mode", "secondary"),
+            ("active_periods", "2"),
+            ("prep_period", "2"),
+            ("primary_color", "#003F5A"),
+            ("accent_color", "#B1D2E1"),
+            ("term_name", "Semester 1"),
+        ],
+    )
+    .await
+    .redirects_to("/start");
+    let page = c.get("/start").await.text();
+    assert!(page.contains("id=\"wizard\"") && page.contains("ontario-secondary") && page.contains("data-first-run=\"1\""), "{page}");
+    assert!(c.get("/static/js/wizard.js").await.ok().text().contains("/api/start"));
+
+    let class = |name: &str, period: i64| {
+        json!({
+            "name": name, "course_code": "SBI3U", "period": period, "preset": "ontario-secondary",
+            "students": [{"first": "Ana", "last": "Lee"}, {"first": "Omar", "last": "Khan"}],
+            "assessments": [
+                {"name": "Quiz 1", "kind": "scored", "out_of": 20, "category": "Knowledge & Understanding"},
+                {"name": "Lab 1", "kind": "scored", "out_of": null, "category": ""},
+                {"name": "Journal", "kind": "completion", "out_of": null, "category": ""}
+            ]
+        })
+    };
+    // Period 2 is the prep period.
+    let r = c.post_json("/api/start", json!({"classes": [class("Grade 11 Biology", 2)]})).await;
+    assert_eq!(r.status, 400, "{}", r.text());
+    assert!(!c.get("/").await.text().contains("Grade 11 Biology"), "a refused setup creates nothing");
+
+    let r = c.post_json("/api/start", json!({"classes": [class("Grade 11 Biology", 1)]})).await.ok().json();
+    assert_eq!((r["classes"].as_i64(), r["students"].as_i64(), r["assessments"].as_i64()), (Some(1), Some(2), Some(3)));
+    assert_eq!(r["review"].as_i64(), Some(1), "Lab 1 has no category or out-of; the journal needs neither");
+
+    let page = c.get("/classes/1").await.text();
+    let sid: i64 = between(&page, "data-subject=\"", "\"").parse().unwrap();
+    let g = c.get(&format!("/api/subjects/{sid}/grid")).await.json();
+    let flags: Vec<(String, i64)> = g["assessments"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|a| (a["name"].as_str().unwrap().into(), a["needs_review"].as_i64().unwrap()))
+        .collect();
+    assert_eq!(flags, [("Quiz 1".to_string(), 0), ("Lab 1".to_string(), 2), ("Journal".to_string(), 0)]);
+    assert_eq!(g["students"].as_array().unwrap().len(), 2);
+    assert_eq!(g["categories"].as_array().unwrap().len(), 5);
+
+    // A second run adds to what's there; reusing a name is refused.
+    let r = c.post_json("/api/start", json!({"classes": [class("grade 11 biology", 1)]})).await;
+    assert_eq!(r.status, 400);
+    assert!(c.get("/").await.text().contains("1 assignment needs a few details"));
+    assert!(c.get("/start").await.ok().text().contains("data-first-run=\"0\""));
+    if state.config.storage == Storage::Memory {
+        assert_eq!(state.db.stored_student_rows().unwrap(), 0);
+    }
+    let _ = std::fs::remove_dir_all(dir);
+}

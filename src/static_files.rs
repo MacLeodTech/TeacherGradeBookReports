@@ -20,6 +20,7 @@ static FILES: &[(&str, &str, &[u8])] = files! {
     "js/reports.js" => "text/javascript; charset=utf-8",
     "js/settings.js" => "text/javascript; charset=utf-8",
     "js/theme.js" => "text/javascript; charset=utf-8",
+    "js/wizard.js" => "text/javascript; charset=utf-8",
     "icons/favicon.svg" => "image/svg+xml",
     "icons/favicon-32.png" => "image/png",
     "icons/apple-touch-icon.png" => "image/png",

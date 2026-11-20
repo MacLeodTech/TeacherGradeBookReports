@@ -14,6 +14,7 @@ const TEMPLATES: &[(&str, &str)] = templates![
     "login.html",
     "login_totp.html",
     "settings.html",
+    "start.html",
     "profile.html",
     "terms.html",
     "dashboard.html",

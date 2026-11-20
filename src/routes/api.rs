@@ -17,7 +17,7 @@ use crate::{
 };
 
 /// Turn page-style errors into JSON errors for the grid.
-fn j(e: AppError) -> AppError {
+pub(super) fn j(e: AppError) -> AppError {
     match e {
         AppError::BadRequest(m) => AppError::Json(StatusCode::BAD_REQUEST, m),
         AppError::NotFound => AppError::Json(StatusCode::NOT_FOUND, "Not found. Reload the page.".into()),

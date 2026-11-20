@@ -20,6 +20,7 @@ mod login;
 mod reports;
 mod students;
 mod terms;
+mod wizard;
 mod workbook;
 
 use axum::{
@@ -55,6 +56,7 @@ pub fn router(state: AppState) -> Router {
         // Dashboard, setup, settings, profile
         .route("/", get(classes::dashboard))
         .route("/setup", get(account::setup_page))
+        .route("/start", get(wizard::page))
         .route("/settings", get(account::settings_page).post(account::settings_save))
         .route("/settings/palette", get(account::palette))
         .route("/settings/sample-report.pdf", get(account::sample_report))
@@ -116,6 +118,7 @@ pub fn router(state: AppState) -> Router {
         .route("/admin/backups/download", get(admin::backup_download))
         .route("/admin/audit", get(admin::audit))
         // Grid API
+        .route("/api/start", post(wizard::create))
         .route("/api/subjects/{sid}/grid", get(api::grid))
         .route("/api/subjects/{sid}/marks", post(api::save_marks))
         .route("/api/subjects/{sid}/assessments", post(api::assessment_create))

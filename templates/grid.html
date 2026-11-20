@@ -46,6 +46,7 @@
       <div class="modal-header"><h2 class="modal-title h5" id="assessment-title">Assessment</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
       <div class="modal-body row g-3">
         <input type="hidden" name="id">
+        <div class="col-12 d-none" id="review-help"></div>
         <div class="col-12"><label class="form-label">Name</label><input class="form-control" name="name" required maxlength="120"></div>
         <div class="col-6"><label class="form-label">Unit / strand</label><input class="form-control" name="unit" list="unit-list" placeholder="optional"><datalist id="unit-list"></datalist></div>
         <div class="col-6"><label class="form-label">Category</label><select class="form-select" name="category_id"></select></div>
@@ -60,7 +61,6 @@
         <div class="col-6"><label class="form-label">Due date</label><input class="form-control" type="date" name="due_date"></div>
         <div class="col-6 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" name="include_in_report" id="iir" checked><label class="form-check-label" for="iir">Show on reports</label></div></div>
         <div class="col-12 d-none" id="rescale-row"><div class="form-check"><input class="form-check-input" type="checkbox" name="rescale" id="rescale" checked><label class="form-check-label" for="rescale">Rescale existing marks to the new "out of" (keeps the same percentages)</label></div></div>
-        <div class="col-12 d-none" id="review-help"></div>
         <div class="col-12 text-danger small" id="assessment-error"></div>
       </div>
       <div class="modal-footer">

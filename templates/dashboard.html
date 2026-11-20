@@ -15,7 +15,7 @@
   </div>
   <div class="ms-auto d-flex gap-2">
     <a class="btn btn-outline-secondary" href="/import"><i class="bi bi-upload"></i> Import a spreadsheet</a>
-    {% if not add_error %}<a class="btn btn-primary" href="/classes/new"><i class="bi bi-plus-lg"></i> New class</a>{% endif %}
+    {% if not add_error %}<a class="btn btn-primary" href="/start"><i class="bi bi-magic"></i> Set up a class</a>{% endif %}
   </div>
 </div>
 
@@ -33,14 +33,14 @@
   {% if storage == "memory" %}
   <h2 class="h5 mt-3">Open your workbook to get started</h2>
   <p class="text-muted">Your classes and marks live in your own workbook file, not here. Open the one you saved last time, or start fresh.</p>
-  <a class="btn btn-primary" href="/workbook"><i class="bi bi-folder2-open"></i> Open your workbook</a>
-  <a class="btn btn-outline-secondary" href="/classes/new">Create a class</a>
+  <a class="btn btn-primary" href="/start"><i class="bi bi-magic"></i> Set up my classes</a>
+  <a class="btn btn-outline-secondary" href="/workbook"><i class="bi bi-folder2-open"></i> Open your workbook</a>
   <a class="btn btn-outline-secondary" href="/import">Import a spreadsheet</a>
   <p class="small text-muted mt-3 mb-0">First time? <a href="/import/template.xlsx">Download the starter spreadsheet</a>, fill it in with your classes and marks, and upload it on the <a href="/import">Import</a> page.</p>
   {% else %}
   <h2 class="h5 mt-3">No classes yet</h2>
   <p class="text-muted">Create a class and add students, or import last term's spreadsheet to get going quickly.</p>
-  <a class="btn btn-primary" href="/classes/new">Create a class</a>
+  <a class="btn btn-primary" href="/start"><i class="bi bi-magic"></i> Set up my classes</a>
   <a class="btn btn-outline-secondary" href="/import">Import a spreadsheet</a>
   <p class="small text-muted mt-3 mb-0">Or <a href="/import/template.xlsx">download the starter spreadsheet</a>, fill it in with your classes and marks, and upload it on the <a href="/import">Import</a> page.</p>
   {% endif %}

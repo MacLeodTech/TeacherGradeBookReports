@@ -523,3 +523,12 @@ tr.st-row-excused td { color: var(--gb-muted); }
 /* Assessments whose details Gradebook guessed */
 .gb-grid .a-head.needs-review { box-shadow: inset 0 3px 0 var(--bs-warning); }
 .gb-grid .a-head .review-dot { color: var(--bs-warning-text-emphasis, #997404); font-size: .75rem; }
+
+/* Guided setup */
+.wizard { max-width: 46rem; }
+.wiz-steps { counter-reset: none; }
+.wiz-step { display: flex; align-items: center; gap: .4rem; color: var(--gb-muted); font-size: .9rem; }
+.wiz-step .num { display: inline-flex; align-items: center; justify-content: center; width: 1.6rem; height: 1.6rem; border-radius: 50%; border: 1px solid var(--gb-border-strong); font-size: .8rem; }
+.wiz-step.active { color: var(--gb-strong); font-weight: 600; }
+.wiz-step.active .num { background: var(--gb-primary); border-color: var(--gb-primary); color: #fff; }
+.wiz-step.past .num { background: var(--gb-primary-soft); }

@@ -62,11 +62,11 @@ fn class_card(c: &Connection, settings: &Settings, class: Class) -> AppResult<Cl
 }
 
 /// Periods that can still take a class (secondary mode).
-fn free_periods(settings: &Settings, classes: &[Class]) -> Vec<i64> {
+pub(super) fn free_periods(settings: &Settings, classes: &[Class]) -> Vec<i64> {
     (1..=4).filter(|p| Some(*p) != settings.prep_period && !classes.iter().any(|c| c.period == Some(*p))).collect()
 }
 
-fn can_add_class(settings: &Settings, classes: &[Class]) -> Result<(), String> {
+pub(super) fn can_add_class(settings: &Settings, classes: &[Class]) -> Result<(), String> {
     if settings.mode == Mode::Secondary && classes.len() as i64 >= settings.active_periods {
         return Err(format!(
             "You're set up for {} teaching period(s) and already have {} class(es) this term. Change the number of periods in Settings to add more.",
@@ -120,6 +120,50 @@ pub async fn dashboard(State(state): State<AppState>, auth: Auth) -> AppResult<R
     render(&state, &auth, "dashboard.html", ctx! { term, slots, has_cards, add_error, terms, review_total, review_class }).await
 }
 
+/// What it takes to create a class.
+pub(super) struct NewClass {
+    pub name: String,
+    pub code: String,
+    pub period: Option<i64>,
+    pub grade: String,
+    pub room: String,
+    /// A `model::category_preset` name.
+    pub preset: String,
+    /// Elementary: the subjects, one per entry (empty = the default subject).
+    pub subject_lines: Vec<String>,
+    pub letter_grades: bool,
+}
+
+/// Create a class with its subjects and categories. The caller checks the period and class limits.
+pub(super) fn insert_class(tx: &Connection, uid: i64, term_id: i64, settings: &Settings, n: &NewClass) -> AppResult<i64> {
+    tx.execute(
+        "INSERT INTO classes (user_id, term_id, name, course_code, period, grade_level, room) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![uid, term_id, n.name, n.code, n.period, n.grade, n.room],
+    )?;
+    let class_id = tx.last_insert_rowid();
+    if settings.mode == Mode::Elementary && !n.subject_lines.is_empty() {
+        for (i, s) in n.subject_lines.iter().enumerate() {
+            tx.execute(
+                "INSERT INTO subjects (class_id, name, report_style, sort) VALUES (?1, ?2, ?3, ?4)",
+                params![class_id, s, if n.letter_grades { "letter" } else { "percent" }, i as i64],
+            )?;
+        }
+    } else {
+        model::create_default_subjects(tx, class_id, settings.mode, &n.name)?;
+    }
+    if let Some(cats) = model::category_preset(&n.preset) {
+        for s in model::subjects(tx, class_id)? {
+            for (i, (name, w)) in cats.iter().enumerate() {
+                tx.execute(
+                    "INSERT INTO categories (subject_id, name, weight, sort) VALUES (?1, ?2, ?3, ?4)",
+                    params![s.id, name, w, i as i64],
+                )?;
+            }
+        }
+    }
+    Ok(class_id)
+}
+
 pub async fn new_page(State(state): State<AppState>, auth: Auth) -> AppResult<Response> {
     let uid = auth.user.id;
     let (term, free, add_error) = auth
@@ -167,31 +211,13 @@ pub async fn create(State(state): State<AppState>, auth: Auth, f: F) -> AppResul
                 None
             };
             let tx = c.transaction()?;
-            tx.execute(
-                "INSERT INTO classes (user_id, term_id, name, course_code, period, grade_level, room) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                params![uid, term.id, display, code, period, grade, room],
+            let class_id = insert_class(
+                &tx,
+                uid,
+                term.id,
+                &settings,
+                &NewClass { name: display, code, period, grade, room, preset, subject_lines, letter_grades },
             )?;
-            let class_id = tx.last_insert_rowid();
-            if settings.mode == Mode::Elementary && !subject_lines.is_empty() {
-                for (i, s) in subject_lines.iter().enumerate() {
-                    tx.execute(
-                        "INSERT INTO subjects (class_id, name, report_style, sort) VALUES (?1, ?2, ?3, ?4)",
-                        params![class_id, s, if letter_grades { "letter" } else { "percent" }, i as i64],
-                    )?;
-                }
-            } else {
-                model::create_default_subjects(&tx, class_id, settings.mode, &display)?;
-            }
-            if let Some(cats) = model::category_preset(&preset) {
-                for s in model::subjects(&tx, class_id)? {
-                    for (i, (n, w)) in cats.iter().enumerate() {
-                        tx.execute(
-                            "INSERT INTO categories (subject_id, name, weight, sort) VALUES (?1, ?2, ?3, ?4)",
-                            params![s.id, n, w, i as i64],
-                        )?;
-                    }
-                }
-            }
             tx.commit()?;
             Ok(Ok(class_id))
         })
