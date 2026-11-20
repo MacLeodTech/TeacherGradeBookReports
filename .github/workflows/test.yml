@@ -1,7 +1,8 @@
 name: Test
 
-# Format, lint and test on every OS the app ships for. Called by CI, and by
-# the release workflow when a tagged commit wasn't already tested on main.
+# Format, lint and test on Linux: the quick check for every PR (one compile,
+# not three). Windows and macOS are tested on main by binaries.yml, which tests
+# the same build it ships.
 on:
   workflow_call:
 
@@ -16,24 +17,16 @@ env:
 
 jobs:
   test:
-    name: Test (${{ matrix.os }})
+    name: Test (Linux)
     # The repo is public: GitHub-hosted runners only.
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        # Linux for the Docker image; Windows and macOS for `gradebook local`.
-        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Install Rust
         id: rust
-        shell: bash
         run: |
-          components=""
-          [ "$RUNNER_OS" = Linux ] && components="--component clippy,rustfmt"
-          rustup toolchain install stable --profile minimal $components && rustup default stable
+          rustup toolchain install stable --profile minimal --component clippy,rustfmt && rustup default stable
           echo "version=$(rustc -V | cut -d' ' -f2)" >> "$GITHUB_OUTPUT"
 
       # Keyed on the Rust version and Cargo.lock. Saved only from main: caches
@@ -50,13 +43,10 @@ jobs:
           key: test-${{ runner.os }}-rust${{ steps.rust.outputs.version }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: test-${{ runner.os }}-rust${{ steps.rust.outputs.version }}-
 
-      # Formatting and lints don't depend on the OS, so they run once.
       - name: Format
-        if: runner.os == 'Linux'
         run: cargo fmt --check
 
       - name: Lint
-        if: runner.os == 'Linux'
         run: cargo clippy --locked --all-targets -- -D clippy::correctness -D clippy::suspicious
 
       - name: Test

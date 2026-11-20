@@ -1,8 +1,10 @@
 name: Binaries
 
-# Build `gradebook` for teachers' own computers and keep each one as a run
-# artifact. Called by CI on main (so a release only has to publish them) and
-# by the release workflow when CI didn't build the tagged commit.
+# Build `gradebook` for teachers' own computers, run the tests on that same
+# release build (so each OS compiles once, not once to test and again to
+# ship), and keep each download as a run artifact. Called by CI on main (so a
+# release only has to publish them) and by the release workflow when CI didn't
+# build the tagged commit.
 on:
   workflow_call:
 
@@ -21,10 +23,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: windows-latest, target: x86_64-pc-windows-msvc, name: windows-x64, exe: gradebook.exe }
-          - { os: macos-latest, target: aarch64-apple-darwin, name: macos-arm64, exe: gradebook }
-          - { os: macos-latest, target: x86_64-apple-darwin, name: macos-x64, exe: gradebook }
-          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, name: linux-x64, exe: gradebook }
+          # Intel Macs are built on an Apple silicon runner, so they can't run
+          # the tests there; the Apple silicon build covers macOS.
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, name: windows-x64, exe: gradebook.exe, test: true }
+          - { os: macos-latest, target: aarch64-apple-darwin, name: macos-arm64, exe: gradebook, test: true }
+          - { os: macos-latest, target: x86_64-apple-darwin, name: macos-x64, exe: gradebook, test: false }
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, name: linux-x64, exe: gradebook, test: true }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
@@ -48,6 +52,11 @@ jobs:
             target/
           key: release-${{ matrix.target }}-rust${{ steps.rust.outputs.version }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: release-${{ matrix.target }}-rust${{ steps.rust.outputs.version }}-
+
+      - name: Test
+        if: matrix.test
+        shell: bash
+        run: cargo test --release --locked --target ${{ matrix.target }}
 
       - name: Build
         shell: bash

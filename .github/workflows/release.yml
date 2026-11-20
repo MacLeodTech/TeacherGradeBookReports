@@ -49,20 +49,15 @@ jobs:
           echo "Reusing CI run $id: https://github.com/$GH_REPO/actions/runs/$id"
           echo "run_id=$id" >> "$GITHUB_OUTPUT"
 
-  # Only when CI didn't already do it.
-  test:
+  # Only when CI didn't already do it. The binaries jobs run the tests.
+  binaries:
     needs: find
     if: needs.find.outputs.run_id == ''
-    uses: ./.github/workflows/test.yml
-
-  binaries:
-    needs: [find, test]
-    if: needs.find.outputs.run_id == '' && needs.test.result == 'success' && !cancelled()
     uses: ./.github/workflows/binaries.yml
 
   image:
-    needs: [find, test]
-    if: needs.find.outputs.run_id == '' && needs.test.result == 'success' && !cancelled()
+    needs: [find, binaries]
+    if: needs.find.outputs.run_id == '' && needs.binaries.result == 'success' && !cancelled()
     uses: ./.github/workflows/image.yml
     permissions:
       contents: read

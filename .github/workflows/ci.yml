@@ -1,8 +1,9 @@
 name: CI
 
-# Every PR: test on each OS and check the image builds.
-# Every push to main: also build the release downloads and push the image, so
-# tagging a version only has to publish what's already built and tested here.
+# Every PR: format, lint and test on Linux, and check the image builds.
+# Every push to main: also build the four downloads, testing each on its own
+# OS, and push the image, so tagging a version only has to publish what's
+# already built and tested here.
 on:
   pull_request:
     branches: [main]
@@ -25,8 +26,8 @@ jobs:
   test:
     uses: ./.github/workflows/test.yml
 
-  # These run alongside the tests, not after them. Nothing they make is
-  # published until the tests pass.
+  # These run alongside the Linux tests. Nothing they make is published until
+  # every test passes.
   binaries:
     if: github.event_name != 'pull_request'
     uses: ./.github/workflows/binaries.yml
@@ -40,7 +41,7 @@ jobs:
   # Once the tests pass, point `main` and `latest` at this commit's image.
   latest:
     name: Tag image as latest
-    needs: [test, image]
+    needs: [test, binaries, image]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
