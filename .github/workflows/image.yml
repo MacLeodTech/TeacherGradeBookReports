@@ -1,34 +1,23 @@
-name: Build and Publish Docker Image
+name: Image
 
+# Build the Docker image. On a PR it's only built, to check it still builds.
+# From main it's pushed as sha-<commit> (CI adds `main` and `latest` once the
+# tests pass); from a tag, with the version tags too.
 on:
-  push:
-    branches:
-      - main
-    tags:
-      - "v*.*.*"
-  pull_request:
-    branches:
-      - main
-  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
 
 jobs:
-  test:
-    uses: ./.github/workflows/test.yml
-    permissions:
-      contents: read
-
-  build-and-push:
-    name: Build and Push to ghcr.io
-    needs: test
+  build:
+    name: Build image
     runs-on: ubuntu-latest
-
     permissions:
       contents: read
       packages: write # push to ghcr.io/<owner>/teachergradebookreports
-
     env:
       IMAGE: ghcr.io/${{ github.repository_owner }}/teachergradebookreports
-
     steps:
       # Registry references must be lowercase; an org such as MacLeodTech is not.
       - name: Lowercase the image name
@@ -46,26 +35,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract Docker metadata (tags and labels)
+      - name: Image tags and labels
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302  # v6.2.0
         with:
           images: ${{ env.IMAGE }}
           tags: |
-            # Tag branch pushes with the branch name
-            type=ref,event=branch
-            # Tag PRs with pr-<number> (not pushed, only for local build check)
             type=ref,event=pr
-            # Tag semver releases (v1.2.3 → 1.2.3, 1.2, 1)
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            # Always keep a 'latest' tag on main
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-            # Short SHA for traceability
             type=sha,prefix=sha-,format=short
 
-      - name: Build and push Docker image
+      - name: Build and push
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc  # v7.4.0
         with:
           context: .
@@ -73,4 +55,5 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # PR caches can't be read by other branches, so only main writes one.
+          cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,mode=max' || '' }}

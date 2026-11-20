@@ -1,0 +1,58 @@
+name: CI
+
+# Every PR: format, lint and test on Linux, and check the image builds.
+# Every push to main: also build the four downloads, testing each on its own
+# OS, and push the image, so tagging a version only has to publish what's
+# already built and tested here.
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore: ["**.md", "docs/**", "LICENSE"]
+  push:
+    branches: [main]
+    paths-ignore: ["**.md", "docs/**", "LICENSE"]
+  workflow_dispatch:
+
+# A new push to a PR cancels its older run; every commit on main gets its own
+# full run (a release reuses it).
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
+  # These run alongside the Linux tests. Nothing they make is published until
+  # every test passes.
+  binaries:
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/binaries.yml
+
+  image:
+    uses: ./.github/workflows/image.yml
+    permissions:
+      contents: read
+      packages: write
+
+  # Once the tests pass, point `main` and `latest` at this commit's image.
+  latest:
+    name: Tag image as latest
+    needs: [test, binaries, image]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550  # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Tag
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/teachergradebookreports"
+          docker buildx imagetools create -t "$image:main" -t "$image:latest" "$image:sha-${GITHUB_SHA::7}"

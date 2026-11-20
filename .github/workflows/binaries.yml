@@ -1,0 +1,93 @@
+name: Binaries
+
+# Build `gradebook` for teachers' own computers, run the tests on that same
+# release build (so each OS compiles once, not once to test and again to
+# ship), and keep each download as a run artifact. Called by CI on main (so a
+# release only has to publish them) and by the release workflow when CI didn't
+# build the tagged commit.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Intel Macs are built on an Apple silicon runner, so they can't run
+          # the tests there; the Apple silicon build covers macOS.
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, name: windows-x64, exe: gradebook.exe, test: true }
+          - { os: macos-latest, target: aarch64-apple-darwin, name: macos-arm64, exe: gradebook, test: true }
+          - { os: macos-latest, target: x86_64-apple-darwin, name: macos-x64, exe: gradebook, test: false }
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, name: linux-x64, exe: gradebook, test: true }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Install Rust
+        id: rust
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal --target ${{ matrix.target }}
+          rustup default stable
+          echo "version=$(rustc -V | cut -d' ' -f2)" >> "$GITHUB_OUTPUT"
+
+      # Saved only from main, like the test cache.
+      - name: Restore the build cache
+        id: cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: release-${{ matrix.target }}-rust${{ steps.rust.outputs.version }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: release-${{ matrix.target }}-rust${{ steps.rust.outputs.version }}-
+
+      - name: Test
+        if: matrix.test
+        shell: bash
+        run: cargo test --release --locked --target ${{ matrix.target }}
+
+      - name: Build
+        shell: bash
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Save the build cache
+        if: github.ref == 'refs/heads/main' && steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ steps.cache.outputs.cache-primary-key }}
+
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p dist
+          bin="target/${{ matrix.target }}/release/${{ matrix.exe }}"
+          if [ "$RUNNER_OS" = Windows ]; then
+            7z a "dist/gradebook-${{ matrix.name }}.zip" "./$bin"
+          else
+            tar -C "$(dirname "$bin")" -czf "dist/gradebook-${{ matrix.name }}.tar.gz" "${{ matrix.exe }}"
+          fi
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: gradebook-${{ matrix.name }}
+          path: dist/*
+          if-no-files-found: error
+          compression-level: 0  # already compressed
+          retention-days: 30

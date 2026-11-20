@@ -1,21 +1,27 @@
 # ── Build ────────────────────────────────────────────────────────────────────
-FROM rust:1-slim-bookworm AS builder
+# cargo-chef builds the dependencies in their own layer, from a recipe that
+# leaves out the app's own version, so bumping the version (or changing any app
+# code) reuses the cached dependencies instead of compiling them all again.
+FROM lukemathwalker/cargo-chef:0.1.78-rust-1-slim-bookworm@sha256:c784743d0bc1411f21b2f942974f8845c0d94955ed4e6c702a561eb4dfc6fdf4 AS chef
 WORKDIR /build
 
-# Cache dependencies separately from the app source.
+FROM chef AS planner
 COPY Cargo.toml Cargo.lock ./
-RUN mkdir src && echo 'fn main() {}' > src/main.rs \
-    && cargo build --release --locked \
-    && rm -rf src target/release/deps/gradebook* target/release/gradebook*
+COPY src/ src/
+RUN cargo chef prepare --recipe-path recipe.json
 
+FROM chef AS builder
+COPY --from=planner /build/recipe.json recipe.json
+RUN cargo chef cook --release --locked --recipe-path recipe.json
+
+COPY Cargo.toml Cargo.lock ./
 COPY src/ src/
 COPY migrations/ migrations/
 COPY report/ report/
 COPY assets/ assets/
 COPY templates/ templates/
 COPY static/ static/
-# COPY keeps old mtimes; touch so cargo rebuilds over the placeholder binary.
-RUN touch src/main.rs && cargo build --release --locked && strip target/release/gradebook
+RUN cargo build --release --locked
 
 # ── Runtime ──────────────────────────────────────────────────────────────────
 # One binary: templates, static files, fonts and the report layout are all
