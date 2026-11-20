@@ -500,6 +500,8 @@ pub struct Setup {
     pub categories: Vec<CategoryIn>,
     pub assessments: Vec<AssessmentIn>,
     pub policy: MissingPolicy,
+    /// Within each group, work further along the columns counts up to twice as much as the earliest.
+    pub recent: bool,
     pub levels: Levels,
 }
 
@@ -566,15 +568,19 @@ fn weighted_mean<'a>(
     marks: &HashMap<i64, MarkEntry>,
     setup: &Setup,
 ) -> (Option<f64>, usize) {
-    let (mut sum, mut wsum, mut n) = (0.0, 0.0, 0usize);
-    for a in items.filter(|a| a.kind.graded() && a.weight > 0.0) {
-        if let Some(p) = counted_pct(a, marks.get(&a.id), setup) {
-            sum += p * a.weight;
-            wsum += a.weight;
-            n += 1;
-        }
+    let counted: Vec<(&AssessmentIn, f64)> = items
+        .filter(|a| a.kind.graded() && a.weight > 0.0)
+        .filter_map(|a| counted_pct(a, marks.get(&a.id), setup).map(|p| (a, p)))
+        .collect();
+    let last = counted.len().saturating_sub(1).max(1) as f64;
+    let (mut sum, mut wsum) = (0.0, 0.0);
+    for (i, (a, p)) in counted.iter().enumerate() {
+        // Oldest = x1, newest = x2, evenly in between (by column order).
+        let w = if setup.recent { a.weight * (1.0 + i as f64 / last) } else { a.weight };
+        sum += p * w;
+        wsum += w;
     }
-    if wsum > 0.0 { (Some(sum / wsum), n) } else { (None, 0) }
+    if wsum > 0.0 { (Some(sum / wsum), counted.len()) } else { (None, 0) }
 }
 
 /// Compute one student's results for one subject.
@@ -709,11 +715,32 @@ mod tests {
     }
 
     #[test]
+    fn recent_work_counts_more() {
+        let asmts = vec![a(1, None, 100.0), a(2, None, 100.0), a(3, None, 100.0)];
+        let marks: HashMap<i64, MarkEntry> =
+            HashMap::from([(1, MarkEntry::marked(60.0)), (2, MarkEntry::marked(70.0)), (3, MarkEntry::marked(100.0))]);
+        let mk = |recent| Setup {
+            categories: vec![],
+            assessments: asmts.clone(),
+            policy: MissingPolicy::Ignore,
+            recent,
+            levels: Levels::default(),
+        };
+        approx(compute(&mk(false), &marks, None).overall, 76.666_666_666_666_67);
+        // weights 1, 1.5, 2 → (60 + 105 + 200) / 4.5
+        approx(compute(&mk(true), &marks, None).overall, 365.0 / 4.5);
+        // A single mark is unchanged.
+        let one: HashMap<i64, MarkEntry> = HashMap::from([(2, MarkEntry::marked(80.0))]);
+        approx(compute(&mk(true), &one, None).overall, 80.0);
+    }
+
+    #[test]
     fn real_zero_is_not_missing() {
         let setup = Setup {
             categories: vec![],
             assessments: vec![a(1, None, 10.0), a(2, None, 10.0)],
             policy: MissingPolicy::Ignore,
+            recent: false,
             levels: Levels::default(),
         };
         let marks = HashMap::from([(1, MarkEntry::marked(0.0)), (2, MarkEntry::marked(10.0))]);
@@ -733,7 +760,13 @@ mod tests {
             (4, MarkEntry::status(Status::Pending)),
         ]);
         let ignore = compute(
-            &Setup { categories: vec![], assessments: asmts.clone(), policy: MissingPolicy::Ignore, levels: Levels::default() },
+            &Setup {
+                categories: vec![],
+                assessments: asmts.clone(),
+                policy: MissingPolicy::Ignore,
+                recent: false,
+                levels: Levels::default(),
+            },
             &marks,
             None,
         );
@@ -741,7 +774,7 @@ mod tests {
         assert_eq!((ignore.submitted, ignore.missing, ignore.pending, ignore.excused, ignore.expected), (2, 1, 1, 1, 4));
 
         let zero = compute(
-            &Setup { categories: vec![], assessments: asmts, policy: MissingPolicy::Zero, levels: Levels::default() },
+            &Setup { categories: vec![], assessments: asmts, policy: MissingPolicy::Zero, recent: false, levels: Levels::default() },
             &marks,
             None,
         );
@@ -760,6 +793,7 @@ mod tests {
             ],
             assessments: vec![a(1, Some(1), 100.0), t2, a(3, Some(2), 100.0)],
             policy: MissingPolicy::Ignore,
+            recent: false,
             levels: Levels::default(),
         };
         // Term: (60*1 + 90*2)/3 = 80. Final: 50. Overall: 80*.7 + 50*.3 = 71.
@@ -781,6 +815,7 @@ mod tests {
             ],
             assessments: vec![a(1, Some(1), 100.0), a(2, Some(2), 100.0)],
             policy: MissingPolicy::Ignore,
+            recent: false,
             levels: Levels::default(),
         };
         let r = compute(&setup, &HashMap::from([(1, MarkEntry::marked(82.0))]), None);
@@ -798,6 +833,7 @@ mod tests {
             categories: vec![],
             assessments: vec![a(1, None, 10.0), formative, journal],
             policy: MissingPolicy::Zero,
+            recent: false,
             levels: Levels::default(),
         };
         let marks = HashMap::from([(1, MarkEntry::marked(9.0)), (2, MarkEntry::marked(1.0)), (3, MarkEntry::marked(1.0))]);
@@ -812,6 +848,7 @@ mod tests {
             categories: vec![CategoryIn { id: 1, name: "All".into(), weight: 100.0 }],
             assessments: vec![a(1, Some(1), 10.0), a(2, None, 10.0)],
             policy: MissingPolicy::Ignore,
+            recent: false,
             levels: Levels::default(),
         };
         let marks = HashMap::from([(1, MarkEntry::marked(10.0)), (2, MarkEntry::marked(0.0))]);
@@ -826,6 +863,7 @@ mod tests {
             categories: vec![CategoryIn { id: 1, name: "A".into(), weight: 30.0 }, CategoryIn { id: 2, name: "B".into(), weight: 30.0 }],
             assessments: vec![a(1, Some(1), 10.0), a(2, Some(2), 10.0)],
             policy: MissingPolicy::Ignore,
+            recent: false,
             levels: Levels::default(),
         };
         let marks = HashMap::from([(1, MarkEntry::marked(10.0)), (2, MarkEntry::marked(5.0))]);
@@ -836,8 +874,13 @@ mod tests {
 
     #[test]
     fn override_wins() {
-        let setup =
-            Setup { categories: vec![], assessments: vec![a(1, None, 10.0)], policy: MissingPolicy::Ignore, levels: Levels::default() };
+        let setup = Setup {
+            categories: vec![],
+            assessments: vec![a(1, None, 10.0)],
+            policy: MissingPolicy::Ignore,
+            recent: false,
+            levels: Levels::default(),
+        };
         let r = compute(&setup, &HashMap::from([(1, MarkEntry::marked(5.0))]), Some(62.0));
         approx(r.calculated, 50.0);
         approx(r.overall, 62.0);
@@ -846,8 +889,13 @@ mod tests {
 
     #[test]
     fn no_marks_means_no_grade() {
-        let setup =
-            Setup { categories: vec![], assessments: vec![a(1, None, 10.0)], policy: MissingPolicy::Ignore, levels: Levels::default() };
+        let setup = Setup {
+            categories: vec![],
+            assessments: vec![a(1, None, 10.0)],
+            policy: MissingPolicy::Ignore,
+            recent: false,
+            levels: Levels::default(),
+        };
         let r = compute(&setup, &HashMap::new(), None);
         assert_eq!(r.overall, None);
         assert_eq!(r.expected, 1);
@@ -861,7 +909,13 @@ mod tests {
         y.unit = "Unit 1".into();
         let mut z = a(3, None, 10.0);
         z.unit = "Unit 2".into();
-        let setup = Setup { categories: vec![], assessments: vec![x, y, z], policy: MissingPolicy::Ignore, levels: Levels::default() };
+        let setup = Setup {
+            categories: vec![],
+            assessments: vec![x, y, z],
+            policy: MissingPolicy::Ignore,
+            recent: false,
+            levels: Levels::default(),
+        };
         let marks = HashMap::from([(1, MarkEntry::marked(10.0)), (2, MarkEntry::marked(5.0)), (3, MarkEntry::marked(6.0))]);
         let r = compute(&setup, &marks, None);
         assert_eq!(r.units.iter().map(|u| u.name.as_str()).collect::<Vec<_>>(), ["Unit 2", "Unit 1"]);
@@ -950,6 +1004,7 @@ mod tests {
             ],
             assessments: vec![a(1, Some(1), 100.0), part, part2],
             policy: MissingPolicy::Ignore,
+            recent: false,
             levels: Levels::default(),
         };
         let marks = HashMap::from([(1, MarkEntry::marked(80.0)), (2, MarkEntry::marked(4.0)), (3, MarkEntry::marked(3.0))]);

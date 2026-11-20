@@ -229,13 +229,13 @@ on top without rework, because the data model already covers all three modes.
 
 ## 8. Open questions for the teacher
 
-1. Which level is she teaching this year, and is the current spreadsheet layout (modules + `J` journals)
-   from that class? That decides which mode ships first.
-2. Does she grade in points (17/20), percentages, or levels (Level 3+)? Ontario teachers often record levels
-   for K/T/C/A; the engine can map levels to % if needed.
-3. How should missing work count before the reporting deadline: ignored, or 0?
-4. Who receives the PDF (parents, students, her own records)? That decides the tone and which sections are default.
-5. Board policy on keeping student data on a home server (see section 6).
+Answered 2026-11-20:
+
+1. **Level:** Ontario secondary is the default focus. The other modes stay available.
+2. **Mark format:** mixed. Points, percentages and levels can be used per assessment (already supported).
+3. **Missing work before the deadline:** ignored until marked (the default). "Count as 0" stays a setting.
+4. **Who gets the PDF:** a mix, so the current report defaults stay.
+5. **Board policy on keeping student data:** still depends on the board. See `docs/PRIVACY.md` for the options and the questions to ask.
 
 ## 9. Implementation status (Rust rewrite)
 
@@ -260,6 +260,10 @@ on top without rework, because the data model already covers all three modes.
 | Guided setup (class → students → marking → assignments), draft kept in the browser, created in one step | `src/routes/wizard.rs`, `static/js/wizard.js` |
 | Review flag for guessed assessment details (`needs_review`), popup that steps through them | `migrations/005_review.sql`, `static/js/grid.js` |
 | CI on Linux/Windows/macOS; release binaries on tags | `.github/workflows/` |
+| Combined PDF for a student in several classes | `combined` option in `src/routes/reports.rs`, `build_json` in `src/report.rs` |
+| "Count recent work more" (oldest ×1 → newest ×2, per category) | `recent` in `src/engine.rs`, `migrations/006_recency.sql`, Settings |
+| Tablet and phone layout: tap a cell to edit, bigger touch targets, narrower frozen columns, scrolling tables | `static/app.css`, `static/js/grid.js` |
+| Privacy and deployment guide | `docs/PRIVACY.md` |
 
 ## 10. Deployment options
 
@@ -275,6 +279,6 @@ The same features in three deployments; only where student data lives between se
 
 Either hosted option can use passwords (with optional 2-step) or board SSO (`AUTH=oidc`).
 
-Still open: the questions in section 8 (board policy on where teachers may keep the workbook file), signed
-installers for Windows/macOS (the release binaries are unsigned, so the OS will warn on first run), and
-the tablet layout has only had a light pass.
+Still open: the board's answer on where teachers may keep the workbook (`docs/PRIVACY.md`). Parked:
+signed installers for Windows/macOS (the release binaries are unsigned, so the OS will warn on first run) and an
+ARM64 Docker image.

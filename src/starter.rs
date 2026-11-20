@@ -2125,6 +2125,7 @@ mod tests {
             active_periods: 3,
             prep_period: Some(2),
             missing_policy: MissingPolicy::Ignore,
+            recent_weighting: false,
             board_name: String::new(),
             report_title: String::new(),
             primary_color: String::new(),

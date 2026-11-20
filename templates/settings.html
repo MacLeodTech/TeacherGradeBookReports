@@ -64,6 +64,14 @@
       <label class="form-label fw-semibold">Work marked "missing"</label>
       <div class="form-check"><input class="form-check-input" type="radio" name="missing_policy" value="ignore" id="mp1" {% if settings.missing_policy == "ignore" %}checked{% endif %}><label class="form-check-label" for="mp1">Leave it out of the average (flag it on the report)</label></div>
       <div class="form-check"><input class="form-check-input" type="radio" name="missing_policy" value="zero" id="mp2" {% if settings.missing_policy == "zero" %}checked{% endif %}><label class="form-check-label" for="mp2">Count it as zero</label></div>
+      <hr>
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" role="switch" name="recent_weighting" id="rw" {% if settings.recent_weighting %}checked{% endif %}>
+        <label class="form-check-label fw-semibold" for="rw">Count recent work more</label>
+      </div>
+      <p class="form-text mt-1">Within each category, work further along the columns counts up to twice as much as the first
+        piece, rising evenly. This reflects Ontario's "most consistent, more recent" evidence guidance. Keep your columns in date
+        order. You can still set a final grade by hand on a student's page.</p>
     </div>
   </div>
 

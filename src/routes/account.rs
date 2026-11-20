@@ -64,6 +64,7 @@ pub async fn settings_save(State(state): State<AppState>, auth: Auth, f: F) -> A
     let periods = f.int("active_periods").unwrap_or(3).clamp(1, 3);
     let prep = f.int("prep_period").filter(|p| (1..=4).contains(p));
     let policy = if f.get("missing_policy") == "zero" { "zero" } else { "ignore" };
+    let recent = i64::from(f.has("recent_weighting"));
     let primary = f.get("primary_color");
     let accent = f.get("accent_color");
     if !is_hex_color(&primary) || !is_hex_color(&accent) {
@@ -85,8 +86,9 @@ pub async fn settings_save(State(state): State<AppState>, auth: Auth, f: F) -> A
             model::settings(&tx, uid)?; // ensure row
             tx.execute(
                 "UPDATE teacher_settings SET mode = ?1, active_periods = ?2, prep_period = ?3, missing_policy = ?4,
-                 board_name = ?5, report_title = ?6, primary_color = ?7, accent_color = ?8, setup_done = 1 WHERE user_id = ?9",
-                params![mode.as_str(), periods, prep, policy, board, title, primary.to_uppercase(), accent.to_uppercase(), uid],
+                 board_name = ?5, report_title = ?6, primary_color = ?7, accent_color = ?8, recent_weighting = ?9, setup_done = 1
+                 WHERE user_id = ?10",
+                params![mode.as_str(), periods, prep, policy, board, title, primary.to_uppercase(), accent.to_uppercase(), recent, uid],
             )?;
             if setup {
                 let (school, name, email) = profile;
