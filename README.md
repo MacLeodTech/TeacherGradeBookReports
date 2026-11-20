@@ -200,11 +200,12 @@ COOKIE_SECURE=false DB_PATH=./dev.db ADMIN_USERNAME=admin ADMIN_PASSWORD=Passwor
 | `migrations/` | SQL schema |
 | `docs/ROADMAP.md` | Design notes and status |
 
-**CI and releases.** Every PR is tested on Linux, Windows and macOS, and the Docker image is built to check
-it. Every push to `main` also builds the four downloads and pushes the image (`latest` once the tests pass).
+**CI and releases.** Every PR is tested on Linux, and the Docker image is built to check it. Every push to
+`main` also builds the four downloads (testing each on Windows, macOS and Linux) and pushes the image
+(`latest` once the tests pass).
 To release, bump `version` in `Cargo.toml`, merge, and push a tag such as `v2.3.0`: the release reuses what CI
 built for that commit (it waits if CI is still running), so it takes a minute or two. If CI didn't build that
-commit, the release tests and builds it itself.
+commit (for example, a docs-only commit, which CI skips), the release tests and builds it itself.
 
 Fonts: Source Sans 3, SIL Open Font License (`assets/fonts/OFL.txt`), used in the PDFs and, as a Latin subset in
 `static/vendor/fonts/`, on the site.
