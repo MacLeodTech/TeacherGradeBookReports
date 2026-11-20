@@ -46,6 +46,7 @@ pub struct Settings {
     pub active_periods: i64,
     pub prep_period: Option<i64>,
     pub missing_policy: MissingPolicy,
+    pub recent_weighting: bool,
     pub board_name: String,
     pub report_title: String,
     pub primary_color: String,
@@ -60,7 +61,7 @@ pub fn settings(c: &Connection, user_id: i64) -> AppResult<Settings> {
     c.execute("INSERT OR IGNORE INTO teacher_settings (user_id) VALUES (?1)", [user_id])?;
     Ok(c.query_row(
         "SELECT mode, active_periods, prep_period, missing_policy, board_name, report_title,
-                primary_color, accent_color, logo IS NOT NULL, scale_json, setup_done, levels_json
+                primary_color, accent_color, logo IS NOT NULL, scale_json, setup_done, levels_json, recent_weighting
          FROM teacher_settings WHERE user_id = ?1",
         [user_id],
         |r| {
@@ -70,6 +71,7 @@ pub fn settings(c: &Connection, user_id: i64) -> AppResult<Settings> {
                 active_periods: r.get(1)?,
                 prep_period: r.get(2)?,
                 missing_policy: MissingPolicy::parse(&r.get::<_, String>(3)?),
+                recent_weighting: r.get::<_, i64>(12)? != 0,
                 board_name: r.get(4)?,
                 report_title: r.get(5)?,
                 primary_color: r.get(6)?,
@@ -428,6 +430,7 @@ pub fn subject_data(c: &Connection, subject: Subject, settings: &Settings) -> Ap
         categories: categories.clone(),
         assessments: assessments.iter().map(Assessment::engine).collect(),
         policy: settings.missing_policy,
+        recent: settings.recent_weighting,
         levels: settings.levels,
     };
     Ok(SubjectData { subject, categories, assessments, marks, overrides, setup })

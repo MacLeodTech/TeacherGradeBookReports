@@ -476,6 +476,7 @@ pub fn sample_json(user: &User, s: &Settings, main: &str, second: &str) -> AppRe
         categories: categories.clone(),
         assessments: assessments.iter().map(Assessment::engine).collect(),
         policy: MissingPolicy::Ignore,
+        recent: false,
         levels: s.levels,
     };
     let sd = SubjectData {
@@ -638,6 +639,7 @@ mod tests {
             categories: categories.clone(),
             assessments: assessments.iter().map(Assessment::engine).collect(),
             policy: MissingPolicy::Ignore,
+            recent: false,
             levels: crate::engine::Levels::default(),
         };
         let sd = SubjectData {

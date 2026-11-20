@@ -164,12 +164,19 @@
     if (target) setFocus(target);
   }
 
+  const coarse = window.matchMedia("(pointer: coarse)");
+
   // ── editing ────────────────────────────────────────────────────────────────
   function startEdit(td, initial) {
     if (readonly || editing) return;
     const original = td.textContent === "✓" ? "Y" : td.textContent;
     const input = document.createElement("input");
     input.className = "cell-input";
+    input.setAttribute("enterkeyhint", "next");
+    input.setAttribute("autocapitalize", "characters");
+    input.setAttribute("autocomplete", "off");
+    input.setAttribute("autocorrect", "off");
+    input.spellcheck = false;
     input.value = initial !== undefined ? initial : original;
     td.textContent = "";
     td.appendChild(input);
@@ -245,7 +252,10 @@
     const td = e.target.closest("td.cell");
     if (td && !td.contains(editing && editing.input)) {
       if (editing) finishEdit(true);
-      setFocus(td);
+      // Touch screens have no Enter/F2/double-click: one tap on a cell edits it.
+      const tap = coarse.matches && !e.target.closest("a, button");
+      setFocus(td, !tap);
+      if (tap) startEdit(td);
     }
   });
   root.addEventListener("dblclick", (e) => {

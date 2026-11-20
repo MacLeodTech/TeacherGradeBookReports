@@ -433,6 +433,50 @@ tr.st-row-excused td { color: var(--gb-muted); }
    forms are hidden; tables print in full (no scrolling or sticky columns),
    with their headings repeated on each page. The mark grid prints landscape. */
 @page { margin: 1.4cm 1.2cm; }
+/* Tablets and touch screens */
+.gb-grid td.cell, .gb-grid .a-head { touch-action: manipulation; }
+.gb-grid-wrap { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+@media (max-width: 991.98px) {
+  /* Narrower frozen columns so a portrait tablet still shows marks. */
+  .gb-grid .name { min-width: 8.5rem; max-width: 10rem; }
+  .gb-grid .overall { left: 8.5rem; min-width: 5.5rem; }
+  .gb-grid-wrap { max-height: calc(100dvh - 200px); }
+  main.container, main.container-fluid { padding-inline: .75rem; }
+}
+/* Phones */
+@media (max-width: 767.98px) {
+  main { padding-block: 1rem !important; }
+  h1, .h1 { font-size: 1.5rem; }
+  /* Wide tables scroll sideways inside their card instead of stretching the page. */
+  main table.table, main table.rm-table { display: block; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  /* Toolbars and button rows wrap; full-width primary actions are easier to hit. */
+  .grid-toolbar .btn, .grid-toolbar .btn-group { flex: 1 1 auto; }
+  .card-header.d-flex, .card-footer.d-flex { flex-wrap: wrap; gap: .5rem; }
+  .modal-dialog { margin: .5rem; }
+  .modal-dialog.modal-lg { max-width: none; }
+  .toast-container { left: 0; right: 0; padding-inline: .5rem; }
+  .toast-container .toast { width: 100%; max-width: none; }
+  /* Phone grid: just enough frozen column to know whose row it is. */
+  .gb-grid .name { min-width: 6.5rem; max-width: 7.5rem; font-size: .85rem; }
+  .gb-grid .overall { left: 6.5rem; min-width: 4.25rem; }
+  .gb-grid-wrap { max-height: calc(100dvh - 170px); border-radius: .5rem; }
+  .gb-grid td.cell { min-width: 4rem; }
+  .gb-grid .a-head { min-width: 5.5rem; }
+  .report-preview, [data-refresh-preview] { display: none !important; }
+}
+@media (pointer: coarse) {
+  .btn, .form-control, .form-select, .nav-link, .dropdown-item { min-height: 2.75rem; }
+  .btn-sm { min-height: 2.25rem; padding-inline: .75rem; }
+  .form-check-input { width: 1.4em; height: 1.4em; }
+  .gb-grid td.cell { height: 2.75rem; min-width: 5rem; font-size: 1rem; }
+  .gb-grid .a-menu { padding: .5rem; margin: -.5rem; }
+  .gb-grid .name a { display: inline-block; padding-block: .35rem; }
+  /* 16px inputs stop iPadOS zooming the page when one is focused. */
+  .cell-input, .form-control, .form-select, textarea { font-size: 1rem; }
+  .cell-input { min-height: 2.5rem; }
+  .class-card:hover { transform: none; }
+}
+
 @page wide { size: landscape; margin: 1cm; }
 @media print {
   body { background: #FFF !important; font-size: 10pt; }

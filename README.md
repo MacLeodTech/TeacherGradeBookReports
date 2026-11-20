@@ -204,6 +204,7 @@ COOKIE_SECURE=false DB_PATH=./dev.db ADMIN_USERNAME=admin ADMIN_PASSWORD=Passwor
 | `static/js/grid.js` | The mark grid |
 | `migrations/` | SQL schema |
 | `docs/ROADMAP.md` | Design notes and status |
+| `docs/PRIVACY.md` | Where student data lives, and questions for your board |
 
 **CI and releases.** Every PR is tested on Linux, and the Docker image is built to check it. Every push to
 `main` also builds the four downloads (testing each on Windows, macOS and Linux) and pushes the image. When all

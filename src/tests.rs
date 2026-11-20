@@ -533,6 +533,15 @@ async fn elementary_mode_has_many_subjects() {
     assert!(pdf.ok().body.starts_with(b"%PDF"));
     // Elementary has no period limit.
     c.post("/classes/new", &[("name", "Grade 3 French"), ("preset", "none")]).await.redirects_to("/classes/2/students");
+
+    // The same student in a second class: the student page offers one combined PDF.
+    c.post("/classes/2/students", &[("first_name", "Ana"), ("last_name", "Lee")]).await;
+    let page = c.get(&format!("/classes/1/students/{sid}")).await.ok().text();
+    assert!(page.contains("name=\"combined\"") && page.contains("Grade 3 French"), "combined option missing");
+    let single = c.post(&format!("/classes/1/students/{sid}/report.pdf"), &[("report_type", "Report")]).await;
+    let both = c.post(&format!("/classes/1/students/{sid}/report.pdf"), &[("report_type", "Report"), ("combined", "1")]).await;
+    assert!(both.ok().body.starts_with(b"%PDF"));
+    assert!(both.body.len() != single.body.len(), "combined report should differ from the single-class one");
     let _ = std::fs::remove_dir_all(dir);
 }
 
