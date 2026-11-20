@@ -1,9 +1,19 @@
 {% extends "base.html" %}
-{% from "macros.html" import class_tabs, grade %}
+{% from "macros.html" import class_tabs, grade, empty %}
 {% block title %}{{ class.name }} · Insights{% endblock %}
 {% block content %}
 {{ class_tabs(class, "insights") }}
 {% for s in subjects %}
+{% if s.graded == 0 %}
+<div class="card mb-4">
+  <div class="card-header fw-semibold">{{ s.subject.name }}</div>
+  <div class="card-body">
+    {% call empty("bar-chart", "Nothing to show yet", "Once some marks are in, this shows the class average, how grades are spread, who to check in with, and how each assessment went.", small=true) %}
+      <a class="btn btn-primary" href="/classes/{{ class.id }}?subject={{ s.subject.id }}"><i class="bi bi-table"></i> Enter marks</a>
+    {% endcall %}
+  </div>
+</div>
+{% else %}
 <div class="card mb-4">
   <div class="card-header fw-semibold">{{ s.subject.name }}</div>
   <div class="card-body">
@@ -43,5 +53,10 @@
     </div>
   </div>
 </div>
+{% endif %}
+{% else %}
+{% call empty("bar-chart", "Nothing to show yet", "This class has no subjects. Add one in Setup, then enter some marks.") %}
+  <a class="btn btn-primary" href="/classes/{{ class.id }}/settings"><i class="bi bi-plus-lg"></i> Add a subject</a>
+{% endcall %}
 {% endfor %}
 {% endblock %}

@@ -117,7 +117,12 @@
       <tbody>${rows}</tbody>
       <tfoot><tr><th class="name">Class average</th><td class="overall">${classAvg}</td>${avgs}${cats.map(() => "<td></td>").join("")}</tr></tfoot>
     </table>
-    ${A.length ? "" : `<div class="p-4 text-center text-muted">No assessments yet.${readonly ? "" : ' Click <strong>Add assessment</strong> to add your first column.'}</div>`}`;
+    ${A.length ? "" : `<div class="text-center py-5 px-3">
+      <i class="bi bi-clipboard-plus fs-1 gb-empty-icon" aria-hidden="true"></i>
+      <h2 class="h5 mt-3">No assessments yet</h2>
+      <p class="text-muted mx-auto gb-empty-text">Each assessment is a column: a quiz, test, project or assignment.${readonly ? "" : " Add one, then type marks straight into the grid or paste a column from a spreadsheet."}</p>
+      ${readonly ? "" : `<button type="button" class="btn btn-primary" data-empty-add><i class="bi bi-plus-lg"></i> Add your first assessment</button>`}
+    </div>`}`;
 
     warningsEl.innerHTML = (data.warnings || []).map((w) => `<div class="alert alert-warning py-1 px-2 small mb-2"><i class="bi bi-exclamation-triangle"></i> ${esc(w)}</div>`).join("");
     if (undoBtn) {
@@ -315,6 +320,11 @@
     save(changes, "paste").then(() => {
       if (skipped > 0) setStatus(`Pasted ${changes.length} cells; ${skipped} fell outside the grid and were ignored.`);
     });
+  });
+
+  // The empty grid's button opens the same dialog as the toolbar's.
+  root.addEventListener("click", (e) => {
+    if (e.target.closest("[data-empty-add]")) document.querySelector('.grid-toolbar [data-action="add-assessment"]')?.click();
   });
 
   // Column menu actions and editing assessments.

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Terms{% endblock %}
+{% from "macros.html" import empty %}
 {% block content %}
 <div class="d-flex align-items-center mb-3">
   <h1 class="h3 mb-0">Terms</h1>
@@ -82,6 +83,8 @@
   </div>
 </div>
 {% else %}
-<div class="alert alert-info">No terms yet. Create one to start adding classes.</div>
+{% call empty("calendar3", "No terms yet", "A term (or semester) holds its classes and marks. Create one to start adding classes.") %}
+  <button class="btn btn-primary" data-bs-toggle="collapse" data-bs-target="#new-term"><i class="bi bi-plus-lg"></i> New term</button>
+{% endcall %}
 {% endfor %}
 {% endblock %}

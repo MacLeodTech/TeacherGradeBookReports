@@ -473,3 +473,5 @@ tr.st-row-excused td { color: var(--gb-muted); }
   .gb-print-footer { margin-top: 1.5rem; padding-top: .4rem; border-top: 1px solid #999; font-size: 8pt; color: #555; }
 }
 .keys td:first-child { white-space: nowrap; width: 1%; padding-right: 1rem; }
+.gb-empty-text { max-width: 34rem; }
+.gb-empty .fs-1, .gb-empty-icon { color: color-mix(in srgb, var(--gb-primary-text) 55%, var(--gb-muted)); }

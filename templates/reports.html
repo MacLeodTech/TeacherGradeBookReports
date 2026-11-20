@@ -1,8 +1,14 @@
 {% extends "base.html" %}
-{% from "macros.html" import class_tabs, grade %}
+{% from "macros.html" import class_tabs, grade, empty %}
 {% block title %}{{ class.name }} · Reports{% endblock %}
 {% block content %}
 {{ class_tabs(class, "reports") }}
+{% if not rows %}
+{% call empty("file-earmark-person", "No reports to make yet", "Reports are made from each student's marks and comments. Add your students and some marks first.") %}
+  <a class="btn btn-primary" href="/classes/{{ class.id }}/students"><i class="bi bi-person-plus"></i> Add students</a>
+  <a class="btn btn-outline-secondary" href="/settings#branding"><i class="bi bi-palette"></i> Set up the report look</a>
+{% endcall %}
+{% else %}
 <form method="post" action="/classes/{{ class.id }}/reports" data-report-check>
   <input type="hidden" name="csrf_token" value="{{ csrf }}">
   <div class="card mb-3">
@@ -52,6 +58,7 @@
     </table>
   </div>
 </form>
+{% endif %}
 
 <div class="modal fade" id="report-check" tabindex="-1" aria-labelledby="report-check-title" aria-hidden="true">
   <div class="modal-dialog modal-dialog-scrollable">

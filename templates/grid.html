@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import class_tabs %}
+{% from "macros.html" import class_tabs, empty %}
 {% block title %}{{ class.name }}{% endblock %}
 {% block container %}container-fluid px-lg-4{% endblock %}
 {% block body_class %}print-wide{% endblock %}
@@ -16,7 +16,10 @@
 {% endif %}
 
 {% if roster_n == 0 %}
-<div class="alert alert-info">This class has no students yet. <a href="/classes/{{ class.id }}/students">Add students</a> or <a href="/import?class={{ class.id }}">import a spreadsheet</a>.</div>
+{% call empty("people", "No students in this class yet", "Add your class list first. You can type or paste names, or bring in a spreadsheet with marks already in it.") %}
+  <a class="btn btn-primary" href="/classes/{{ class.id }}/students"><i class="bi bi-person-plus"></i> Add students</a>
+  <a class="btn btn-outline-secondary" href="/import?class={{ class.id }}"><i class="bi bi-upload"></i> Import a spreadsheet</a>
+{% endcall %}
 {% elif current %}
 <div class="d-flex flex-wrap gap-2 align-items-center mb-2 grid-toolbar d-print-none">
   {% if not class.archived %}
@@ -110,7 +113,9 @@
   </div>
 </div>
 {% else %}
-<div class="alert alert-info">This class has no subjects. <a href="/classes/{{ class.id }}/settings">Add one</a>.</div>
+{% call empty("journal-plus", "This class has no subjects", "Marks are kept per subject. Add at least one (for a secondary course, one subject named after the course is enough).") %}
+  <a class="btn btn-primary" href="/classes/{{ class.id }}/settings"><i class="bi bi-plus-lg"></i> Add a subject</a>
+{% endcall %}
 {% endif %}
 {% endblock %}
 {% block scripts %}<script src="/static/js/grid.js"></script>{% endblock %}
