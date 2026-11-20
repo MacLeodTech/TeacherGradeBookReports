@@ -4,10 +4,13 @@
 //! With memory storage this file *is* the gradebook: open it to start, save
 //! it to keep your work. It opens in Excel too:
 //!
-//! - **Read me**: what the file is.
-//! - One sheet of marks per class and subject (a protected view).
+//! - The same tabs as the starter spreadsheet (`crate::starter`): **Start
+//!   here**, a plain grid of marks per class and subject in the current term,
+//!   and the grey **Setup** tabs. These are editable: the teacher can add
+//!   marks and assessments in Excel, and opening the file applies them on
+//!   top of the data (a cleared cell clears the mark).
 //! - Hidden `_…` sheets with the data itself, one per table, which is what
-//!   the app reads back. Editing those by hand isn't supported.
+//!   the app reads back first. Editing those by hand isn't supported.
 //!
 //! Opening maps every id to a fresh one, so a workbook can be opened into any
 //! account, and opening the same file twice in "add" mode makes two copies.
@@ -16,16 +19,17 @@ use std::{collections::HashMap, io::Cursor};
 
 use calamine::{Data, Reader, Xlsx};
 use rusqlite::{Connection, Transaction, types::Value as Sql};
-use rust_xlsxwriter::{Color, Format, Workbook};
+use rust_xlsxwriter::Workbook;
 
 use crate::{
     error::{AppResult, bad},
-    export::{self, err},
-    model,
+    export::err,
+    model, starter,
 };
 
 const FORMAT: &str = "gradebook-workbook";
-const VERSION: i64 = 1;
+/// 2: the visible tabs are the editable spreadsheet (`crate::starter`).
+const VERSION: i64 = 2;
 const META_SHEET: &str = "_gradebook";
 /// Cap on rows per table when reading (a term is a few thousand).
 const MAX_ROWS: usize = 200_000;
@@ -159,7 +163,7 @@ fn ref_table(col: &str) -> Option<&'static str> {
 fn allowed(table: &str, col: &str) -> Option<&'static [&'static str]> {
     Some(match (table, col) {
         ("marks", "status") => &["marked", "late", "missing", "excused", "pending"],
-        ("assessments", "kind") => &["scored", "completion"],
+        ("assessments", "kind") => &["scored", "completion", "level"],
         ("subjects", "report_style") => &["percent", "letter"],
         ("students", "pronouns") => &["she", "he", "they"],
         ("learning_skills", "rating") => &["E", "G", "S", "N"],
@@ -169,7 +173,7 @@ fn allowed(table: &str, col: &str) -> Option<&'static [&'static str]> {
 
 // ── Saving ───────────────────────────────────────────────────────────────────
 
-/// What the teacher sees on the "Read me" sheet.
+/// Who the file belongs to, for the "Start here" tab.
 pub struct Owner<'a> {
     pub teacher: &'a str,
     pub school: &'a str,
@@ -180,16 +184,7 @@ pub fn save(c: &Connection, user_id: i64, owner: &Owner) -> AppResult<Vec<u8>> {
     let settings = model::settings(c, user_id)?;
     let terms = model::terms(c, user_id)?;
 
-    // Read me.
-    let title = Format::new().set_bold().set_font_size(16).set_font_color(Color::RGB(0x003F5A));
-    let bold = Format::new().set_bold();
-    let wrap = Format::new().set_text_wrap();
-    let ws = wb.add_worksheet();
-    ws.set_name("Read me").map_err(err)?;
-    ws.set_column_width(0, 22).map_err(err)?;
-    ws.set_column_width(1, 90).map_err(err)?;
-    ws.write_with_format(0, 0, "Gradebook workbook", &title).map_err(err)?;
-    let now = chrono::Local::now();
+    // What the teacher works with: Start here, a tab per class, setup tabs.
     let mut counts = Vec::new();
     for t in ["classes", "students", "marks"] {
         let n: i64 = c.query_row(
@@ -199,49 +194,23 @@ pub fn save(c: &Connection, user_id: i64, owner: &Owner) -> AppResult<Vec<u8>> {
         )?;
         counts.push(n);
     }
-    let rows: [(&str, String); 7] = [
-        ("Teacher", owner.teacher.to_string()),
-        ("School", owner.school.to_string()),
-        ("Saved", now.format("%B %-d, %Y at %-I:%M %p").to_string()),
-        ("Terms", terms.iter().map(|t| t.name.clone()).collect::<Vec<_>>().join(", ")),
-        ("Contents", format!("{} classes, {} students, {} marks", counts[0], counts[1], counts[2])),
-        (
-            "How to use it",
-            "Open this file in Gradebook (Open workbook) to carry on where you left off, then save it again when you're done. \
-             The mark sheets are a read-only view; make changes in Gradebook."
-                .into(),
+    let current = terms.iter().find(|t| t.is_current).or(terms.first());
+    let others: Vec<&str> = terms.iter().filter(|t| Some(t.id) != current.map(|c| c.id)).map(|t| t.name.as_str()).collect();
+    let mut t = if current.is_some() { starter::from_term(c, user_id, &settings)? } else { starter::blank(&settings) };
+    t.example = None;
+    t.saved = Some(starter::SavedInfo {
+        teacher: owner.teacher.to_string(),
+        school: owner.school.to_string(),
+        term: current.map_or_else(|| "this term".to_string(), |t| t.name.clone()),
+        contents: format!(
+            "{} classes, {} students, {} marks{}",
+            counts[0],
+            counts[1],
+            counts[2],
+            if others.is_empty() { String::new() } else { format!(". Other terms (saved, not shown): {}", others.join(", ")) }
         ),
-        (
-            "Privacy",
-            "This file contains student information. Keep it where your school board allows, such as your board OneDrive or network drive."
-                .into(),
-        ),
-    ];
-    for (i, (k, v)) in rows.iter().enumerate() {
-        let r = (i + 2) as u32;
-        ws.write_with_format(r, 0, *k, &bold).map_err(err)?;
-        ws.write_with_format(r, 1, v.as_str(), &wrap).map_err(err)?;
-    }
-    ws.protect();
-
-    // A readable sheet per class and subject (current, then other terms).
-    let mut used = vec!["Read me".to_string(), META_SHEET.to_string()];
-    for t in &terms {
-        for class in model::classes_in_term(c, user_id, t.id)? {
-            let roster = model::roster(c, class.id)?;
-            let sds = model::subjects(c, class.id)?
-                .into_iter()
-                .map(|s| model::subject_data(c, s, settings.missing_policy))
-                .collect::<AppResult<Vec<_>>>()?;
-            let base = match class.period {
-                Some(p) => format!("P{p} {}", class.name),
-                None => class.name.clone(),
-            };
-            let named: Vec<(String, &model::SubjectData)> =
-                sds.iter().map(|sd| (if sds.len() > 1 { format!("{base} - {}", sd.subject.name) } else { base.clone() }, sd)).collect();
-            export::add_mark_sheets(&mut wb, &roster, &named, &settings.scale, &mut used, true)?;
-        }
-    }
+    });
+    starter::write_visible(&mut wb, &t)?;
 
     // The data.
     let ws = wb.add_worksheet();
@@ -301,6 +270,9 @@ pub fn is_workbook(bytes: &[u8]) -> bool {
 /// The tables read from a workbook, not yet saved anywhere.
 pub struct Parsed {
     tables: HashMap<&'static str, (Vec<String>, Vec<Vec<Data>>)>,
+    /// The class tabs, as the teacher may have edited them in Excel (from
+    /// version 2 on; earlier workbooks had a read-only view).
+    tabs: Option<starter::Parsed>,
 }
 
 pub fn parse(bytes: &[u8]) -> AppResult<Parsed> {
@@ -330,7 +302,8 @@ pub fn parse(bytes: &[u8]) -> AppResult<Parsed> {
     if !tables.contains_key("terms") || !tables.contains_key("classes") {
         return Err(bad("This workbook is damaged: its data sheets are missing."));
     }
-    Ok(Parsed { tables })
+    let tabs = if version >= 2 { Some(starter::parse_tabs(bytes)?) } else { None };
+    Ok(Parsed { tables, tabs })
 }
 
 fn cell_text(c: Option<&Data>) -> String {
@@ -391,6 +364,8 @@ pub struct Opened {
     pub students: usize,
     pub marks: usize,
     pub skipped: usize,
+    /// What the teacher changed in Excel, applied on top.
+    pub edits: Option<starter::Outcome>,
 }
 
 /// Load a parsed workbook into the teacher's data, all or nothing.
@@ -501,6 +476,13 @@ pub fn open(tx: &Transaction, user_id: i64, parsed: &Parsed, mode: Mode) -> AppR
     // The workbook's current term becomes the current one.
     if let Some(cur) = new_current.or_else(|| ids.get("terms").and_then(|m| m.values().max().copied())) {
         tx.execute("UPDATE terms SET is_current = (id = ?1) WHERE user_id = ?2", [cur, user_id])?;
+    }
+    // Then what was changed in Excel: the class tabs are the current term's
+    // marks, so a cleared cell clears.
+    if let Some(tabs) = &parsed.tabs
+        && !tabs.sheets.is_empty()
+    {
+        out.edits = Some(starter::apply(tx, user_id, tabs, true)?);
     }
     Ok(out)
 }

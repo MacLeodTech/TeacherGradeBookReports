@@ -14,6 +14,7 @@
         <li class="list-group-item">{{ outcome.students_new }} new student{% if outcome.students_new != 1 %}s{% endif %}</li>
         <li class="list-group-item">{{ outcome.assessments_new }} new assessment{% if outcome.assessments_new != 1 %}s{% endif %}</li>
         <li class="list-group-item">{{ outcome.marks_changed }} mark{% if outcome.marks_changed != 1 %}s{% endif %} added or changed</li>
+        {% if outcome.settings_changed %}<li class="list-group-item">{{ outcome.settings_changed }} setting{% if outcome.settings_changed != 1 %}s{% endif %} changed (categories, weights, course codes, pronouns…)</li>{% endif %}
       </ul>
       <div class="card-body">
         {% if changes > 0 %}
@@ -44,6 +45,20 @@
     </div>
     {% else %}
     <div class="alert alert-success"><i class="bi bi-check-circle"></i> No problems found.</div>
+    {% endif %}
+    {% if outcome.notes %}
+    <div class="card mt-4">
+      <div class="card-header fw-semibold"><i class="bi bi-info-circle text-primary"></i> Filled in for you</div>
+      <div class="card-body small text-muted pb-0">The spreadsheet didn't say, so Gradebook chose these. Change them on the Setup tabs, or in Gradebook afterwards.</div>
+      <table class="table table-sm align-middle mb-0">
+        <thead><tr><th>Sheet</th><th>Cell</th><th>What Gradebook chose</th></tr></thead>
+        <tbody>
+          {% for p in outcome.notes %}
+          <tr><td class="text-nowrap">{{ p.sheet }}</td><td><code>{{ p.cell }}</code></td><td>{{ p.message }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
     {% endif %}
   </div>
 </div>

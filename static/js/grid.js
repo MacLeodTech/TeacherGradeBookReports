@@ -62,8 +62,9 @@
     }
     const catCols = cats.map((c) => `<th class="calc" title="Category average">${esc(c.name)}<div class="sub">${num(c.weight)}%</div></th>`).join("");
     const heads = A.map((a, i) => {
-      const meta = a.kind === "completion" ? "done?" : `/${num(a.out_of)}${a.weight !== 1 ? ` ×${num(a.weight)}` : ""}`;
-      return `<th class="a-head ${a.weight === 0 && a.kind === "scored" ? "formative" : ""} ${a.include_in_report ? "" : "hidden-report"}" data-a="${a.id}" title="${esc(a.name)}${a.unit ? " · " + esc(a.unit) : ""}">
+      const times = a.weight !== 1 ? ` ×${num(a.weight)}` : "";
+      const meta = a.kind === "completion" ? "done?" : a.kind === "level" ? `level 1–4${times}` : `/${num(a.out_of)}${times}`;
+      return `<th class="a-head ${a.weight === 0 && a.kind !== "completion" ? "formative" : ""} ${a.include_in_report ? "" : "hidden-report"}" data-a="${a.id}" title="${esc(a.name)}${a.unit ? " · " + esc(a.unit) : ""}">
         <div class="d-flex align-items-start gap-1">
           <button class="a-name btn btn-link p-0 text-start" data-edit="${a.id}" ${readonly ? "disabled" : ""}>${esc(a.name)}</button>
           ${readonly ? "" : `<div class="dropdown ms-auto"><button class="btn btn-link btn-sm p-0 a-menu" data-bs-toggle="dropdown" aria-label="Column menu"><i class="bi bi-three-dots-vertical"></i></button>
@@ -105,7 +106,7 @@
         <td class="overall">${overall}</td>${tds}${catTds}</tr>`;
     }).join("");
 
-    const avgs = A.map((a) => `<td class="avg">${a.kind === "completion" ? "" : pct(a.avg)}</td>`).join("");
+    const avgs = A.map((a) => `<td class="avg">${a.kind === "completion" ? "" : a.kind === "level" ? esc(a.avg_text || "") : pct(a.avg)}</td>`).join("");
     const classAvg = data.class_avg === null ? "—" : `<span class="grade-pill" style="--c:${esc(data.class_color)}">${pct(data.class_avg)} · ${esc(data.class_label)}</span>`;
 
     root.innerHTML = `<table class="gb-grid">
@@ -320,7 +321,10 @@
 
   function syncKind() {
     const completion = form.kind.value === "completion";
+    const level = form.kind.value === "level";
     form.querySelectorAll("[data-scored]").forEach((el) => el.classList.toggle("d-none", completion));
+    form.querySelectorAll("[data-out-of]").forEach((el) => el.classList.toggle("d-none", completion || level));
+    form.querySelectorAll("[data-level-help]").forEach((el) => el.classList.toggle("d-none", !level));
   }
 
   function openModal(a) {

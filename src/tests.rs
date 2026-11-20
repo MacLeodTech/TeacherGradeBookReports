@@ -452,6 +452,8 @@ async fn teacher_workflow(storage: Storage) {
         r.redirects_to("/");
         let home = c.get("/").await.text();
         assert!(home.contains("Workbook opened: 2 classes, 8 students"), "{}", between(&home, "alert-", "</div>"));
+        // The class tabs are exactly what was saved: no edits, nothing to check.
+        assert!(!home.contains("Your changes in Excel") && !home.contains("To check"), "{}", between(&home, "alert-", "</div>"));
         assert!(home.contains("Grade 11 Biology") && home.contains("Imported Class"));
         assert!(!home.contains("Unsaved changes"));
         let bio = c.get("/classes/1").await.text();
@@ -804,6 +806,7 @@ async fn retention_deletes_long_archived_terms() {
 // ── Starter spreadsheet ─────────────────────────────────────────────────────
 
 fn filled_template(extra_student: bool, quiz_for_ana: &str) -> Vec<u8> {
+    use crate::engine::Kind;
     use crate::starter::{AssessmentSpec as A, SheetSpec, StudentSpec as S, Template};
     let row = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
     let mut students = vec![
@@ -823,9 +826,9 @@ fn filled_template(extra_student: bool, quiz_for_ana: &str) -> Vec<u8> {
         period: Some(1),
         categories: vec![("Knowledge".into(), 60.0), ("Application".into(), 40.0)],
         assessments: vec![
-            A { name: "Quiz 1".into(), category: "Knowledge".into(), out_of: 20.0, weight: 1.0, done: false },
-            A { name: "Lab 1".into(), category: "Application".into(), out_of: 40.0, weight: 2.0, done: false },
-            A { name: "Journal 1".into(), category: String::new(), out_of: 1.0, weight: 1.0, done: true },
+            A::new("Quiz 1", "Knowledge", 20.0, 1.0, Kind::Scored),
+            A::new("Lab 1", "Application", 40.0, 2.0, Kind::Scored),
+            A::new("Journal 1", "", 1.0, 1.0, Kind::Completion),
         ],
         students,
         marks,
@@ -835,7 +838,7 @@ fn filled_template(extra_student: bool, quiz_for_ana: &str) -> Vec<u8> {
         title: "Period 3".into(),
         class: "Grade 12 Chemistry".into(),
         period: Some(3),
-        assessments: vec![A { name: "Test".into(), category: String::new(), out_of: 50.0, weight: 1.0, done: false }],
+        assessments: vec![A::new("Test", "", 50.0, 1.0, Kind::Scored)],
         students: vec![S { number: "1001".into(), last: "Lee".into(), first: "Ana".into(), ..Default::default() }],
         marks: vec![row(&["45"])],
         ..Default::default()
@@ -843,7 +846,8 @@ fn filled_template(extra_student: bool, quiz_for_ana: &str) -> Vec<u8> {
     // Over the two periods this teacher is set up for.
     let extra = SheetSpec { title: "Extra".into(), class: "Grade 9 Science".into(), ..Default::default() };
     let extra = SheetSpec { students: vec![S { last: "A".into(), first: "B".into(), ..Default::default() }], ..extra };
-    crate::starter::build(&Template { missing_policy: crate::engine::MissingPolicy::Ignore, sheets: vec![bio, chem, extra] }).unwrap()
+    let t = Template { missing_policy: crate::engine::MissingPolicy::Ignore, sheets: vec![bio, chem, extra], example: None, saved: None };
+    crate::starter::build(&t).unwrap()
 }
 
 #[tokio::test]
@@ -885,7 +889,20 @@ async fn starter_spreadsheet(storage: Storage) {
     assert!(crate::starter::is_template(&blank.body));
     let x = calamine::open_workbook_from_rs::<calamine::Xlsx<_>, _>(std::io::Cursor::new(blank.body.clone())).unwrap();
     use calamine::Reader;
-    assert_eq!(x.sheet_names(), ["How to fill this in", "Example - Math", "Period 1", "Period 3", "_gradebook_template"]);
+    assert_eq!(
+        x.sheet_names(),
+        [
+            "Start here",
+            "Example",
+            "Period 1",
+            "Period 3",
+            "Setup - Classes",
+            "Setup - Categories",
+            "Setup - Assessments",
+            "Setup - Students",
+            "_gradebook_template"
+        ]
+    );
     // Uploading it unfilled says so.
     c.upload("/import", "file", "Gradebook starter spreadsheet.xlsx", &blank.body).await.redirects_to("/import");
     assert!(c.get("/import").await.text().contains("have any classes filled in yet"));
@@ -900,7 +917,7 @@ async fn starter_spreadsheet(storage: Storage) {
         t.contains("New class: <strong>Grade 11 Biology</strong>") && t.contains("New class: <strong>Grade 12 Chemistry</strong>"),
         "{t}"
     );
-    assert!(t.contains("<code>E16</code>") && t.contains("abc"), "the bad mark is located");
+    assert!(t.contains("<code>C7</code>") && t.contains("abc"), "the bad mark is located");
     assert!(t.contains("Grade 9 Science wasn") && t.contains("2 teaching period"), "over the period limit");
     assert!(t.contains("3 new students"), "Ana is one student in two classes");
     // The preview saved nothing.

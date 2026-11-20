@@ -102,6 +102,43 @@ pub fn valid_email(e: &str) -> bool {
         && !e.chars().any(char::is_whitespace)
 }
 
+/// What each level (R, 1–4) is worth, for level assessments such as weekly participation.
+pub async fn levels_save(State(state): State<AppState>, auth: Auth, f: F) -> AppResult<Response> {
+    let levels = if f.has("reset") {
+        Some(crate::engine::Levels::default())
+    } else {
+        let mut pct = [0.0; 5];
+        let mut ok = true;
+        for (i, p) in pct.iter_mut().enumerate() {
+            match f.get(&format!("level{i}")).trim().trim_end_matches('%').parse::<f64>() {
+                Ok(v) => *p = v,
+                Err(_) => ok = false,
+            }
+        }
+        if ok { crate::engine::Levels::new(pct) } else { None }
+    };
+    let Some(levels) = levels else {
+        return flash_to(
+            &state,
+            &auth.session,
+            "danger",
+            "Each level needs a percentage from 0 to 100, higher than the level below it.",
+            "/settings#levels",
+        )
+        .await;
+    };
+    let json = serde_json::to_string(&levels).map_err(|e| AppError::Internal(e.into()))?;
+    let uid = auth.user.id;
+    auth.db
+        .call(move |c| {
+            model::settings(c, uid)?;
+            c.execute("UPDATE teacher_settings SET levels_json = ?1 WHERE user_id = ?2", params![json, uid])?;
+            Ok(())
+        })
+        .await?;
+    flash_to(&state, &auth.session, "success", "Level percentages saved.", "/settings#levels").await
+}
+
 pub async fn scale_save(State(state): State<AppState>, auth: Auth, f: F) -> AppResult<Response> {
     let preset = f.get("preset");
     let scale = match preset.as_str() {

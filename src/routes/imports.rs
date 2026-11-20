@@ -365,7 +365,7 @@ pub async fn template_preview(State(state): State<AppState>, auth: Auth, Path(id
             let (name, parsed) = load_template(c, uid, &sid)?;
             // Run it for real, then roll back: the preview is exactly what will happen.
             let tx = c.transaction()?;
-            let outcome = starter::apply(&tx, uid, &parsed)?;
+            let outcome = starter::apply(&tx, uid, &parsed, false)?;
             tx.rollback()?;
             Ok((name, outcome))
         })
@@ -386,7 +386,7 @@ pub async fn template_apply(
         .call(move |c| {
             let (_, parsed) = load_template(c, uid, &id)?;
             let tx = c.transaction()?;
-            let outcome = starter::apply(&tx, uid, &parsed)?;
+            let outcome = starter::apply(&tx, uid, &parsed, false)?;
             tx.execute("DELETE FROM import_staging WHERE id = ?1", [&id])?;
             tx.commit()?;
             Ok(outcome)

@@ -52,10 +52,7 @@ fn build(c: &Connection, user: &crate::auth::User, cid: i64, sid: i64, opts: &Op
     }
     let mut parts = Vec::new();
     for cl in classes {
-        let sds = model::subjects(c, cl.id)?
-            .into_iter()
-            .map(|s| model::subject_data(c, s, settings.missing_policy))
-            .collect::<AppResult<Vec<_>>>()?;
+        let sds = model::subjects(c, cl.id)?.into_iter().map(|s| model::subject_data(c, s, &settings)).collect::<AppResult<Vec<_>>>()?;
         parts.push((cl, sds));
     }
     let overall = parts.first().and_then(|(_, sds)| {
@@ -127,7 +124,7 @@ pub async fn page(State(state): State<AppState>, auth: Auth, Path(cid): Path<i64
             let roster = model::roster(c, cid)?;
             let sds = model::subjects(c, cid)?
                 .into_iter()
-                .map(|s| model::subject_data(c, s, settings.missing_policy))
+                .map(|s| model::subject_data(c, s, &settings))
                 .collect::<AppResult<Vec<_>>>()?;
             let status = model::report_status(c, cid)?;
             let mut comments_stmt = c.prepare(

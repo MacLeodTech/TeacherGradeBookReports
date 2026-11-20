@@ -57,6 +57,7 @@ pub fn router(state: AppState) -> Router {
         .route("/setup", get(account::setup_page))
         .route("/settings", get(account::settings_page).post(account::settings_save))
         .route("/settings/scale", post(account::scale_save))
+        .route("/settings/levels", post(account::levels_save))
         .route("/settings/logo", post(account::logo_upload))
         .route("/settings/logo/remove", post(account::logo_remove))
         .route("/settings/logo.img", get(account::logo_image))

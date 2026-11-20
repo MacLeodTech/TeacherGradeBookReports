@@ -185,6 +185,15 @@ fn subject_model(sd: &SubjectData, student: &Student, scale: &Scale, opts: &Opti
         None => ("—".into(), "—".into(), GREY.into(), 0.0),
     };
 
+    // A category or unit made only of levels shows its average as a level.
+    let levels = &sd.setup.levels;
+    let all_levels = |keep: &dyn Fn(&crate::model::Assessment) -> bool| {
+        let mut graded = sd.assessments.iter().filter(|a| a.kind != "completion" && keep(a)).peekable();
+        graded.peek().is_some() && graded.all(|a| a.kind == "level")
+    };
+    let grade_label = |p: f64, as_level: bool| {
+        if as_level { format!("Level {}", engine::level_label(levels.level_of(p))) } else { scale.label(p) }
+    };
     let categories = r
         .categories
         .iter()
@@ -192,7 +201,7 @@ fn subject_model(sd: &SubjectData, student: &Student, scale: &Scale, opts: &Opti
             name: c.name.clone(),
             weight: format!("{}%", fmt_num(c.weight)),
             pct: fmt_pct(c.avg),
-            label: c.avg.map(|p| scale.label(p)).unwrap_or_default(),
+            label: c.avg.map(|p| grade_label(p, all_levels(&|a| a.category_id == c.id))).unwrap_or_default(),
             color: c.avg.map(|p| scale.color(p)).unwrap_or_else(|| GREY.into()),
             frac: c.avg.map(|p| p / 100.0).unwrap_or(-1.0),
         })
@@ -201,7 +210,7 @@ fn subject_model(sd: &SubjectData, student: &Student, scale: &Scale, opts: &Opti
     // Units, in assessment order.
     let mut units: Vec<UnitM> = Vec::new();
     let mut missing_list = Vec::new();
-    for a in sd.assessments.iter().filter(|a| a.kind == "scored") {
+    for a in sd.assessments.iter().filter(|a| a.kind != "completion") {
         let m = sd.mark(student.id, a.id);
         if matches!(m.map(|m| m.status), Some(Status::Missing)) {
             missing_list.push(a.name.clone());
@@ -209,10 +218,20 @@ fn subject_model(sd: &SubjectData, student: &Student, scale: &Scale, opts: &Opti
         if !a.include_in_report {
             continue;
         }
-        let ai = a.engine();
-        let row = match m {
-            Some(m) if engine::mark_pct(&ai, m).is_some() => {
-                let p = engine::mark_pct(&ai, m).unwrap_or(0.0);
+        let row = match m.and_then(|m| Some((m, sd.mark_pct(a, m)?))) {
+            Some((m, p)) if a.kind == "level" => {
+                let late = if m.status == Status::Late { " (late)" } else { "" };
+                RowM {
+                    name: format!("{}{}", a.name, if a.weight == 0.0 { " (practice)" } else { "" }),
+                    score: late.trim().into(),
+                    pct: String::new(),
+                    label: format!("Level {}", engine::level_text(m.value.unwrap_or(0.0))),
+                    color: scale.color(p),
+                    frac: p / 100.0,
+                    status_text: String::new(),
+                }
+            }
+            Some((m, p)) => {
                 let late = if m.status == Status::Late { " (late)" } else { "" };
                 RowM {
                     name: format!("{}{}", a.name, if a.weight == 0.0 { " (practice)" } else { "" }),
@@ -224,8 +243,8 @@ fn subject_model(sd: &SubjectData, student: &Student, scale: &Scale, opts: &Opti
                     status_text: String::new(),
                 }
             }
-            other => {
-                let (text, color) = match other.map(|m| m.status) {
+            None => {
+                let (text, color) = match m.map(|m| m.status) {
                     Some(Status::Missing) => ("Not submitted", engine::RED),
                     Some(Status::Excused) => ("Excused", GREY),
                     Some(Status::Pending) => ("Submitted – not yet marked", engine::YELLOW),
@@ -252,7 +271,7 @@ fn subject_model(sd: &SubjectData, student: &Student, scale: &Scale, opts: &Opti
     for u in &mut units {
         if let Some(avg) = r.units.iter().find(|x| x.name == u.name).and_then(|x| x.avg) {
             u.avg = fmt_pct(Some(avg));
-            u.label = format!("({})", scale.label(avg));
+            u.label = format!("({})", grade_label(avg, all_levels(&|a| a.unit == u.name)));
             u.color = scale.color(avg);
         } else {
             u.avg = "—".into();
@@ -499,8 +518,12 @@ mod tests {
             mk(2, "Lab $x$", "Unit 1", "scored"),
             mk(3, "Essay", "Unit 2", "scored"),
             mk(4, "Journal 1", "Journals", "completion"),
+            Assessment { category_id: Some(2), out_of: 4.0, ..mk(5, "Participation week 1", "Participation", "level") },
         ];
-        let categories = vec![CategoryIn { id: 1, name: "Knowledge".into(), weight: 100.0 }];
+        let categories = vec![
+            CategoryIn { id: 1, name: "Knowledge".into(), weight: 85.0 },
+            CategoryIn { id: 2, name: "Participation".into(), weight: 15.0 },
+        ];
         let marks = HashMap::from([(
             1,
             HashMap::from([
@@ -508,12 +531,14 @@ mod tests {
                 (2, MarkEntry::status(Status::Missing)),
                 (3, MarkEntry::status(Status::Pending)),
                 (4, MarkEntry::marked(1.0)),
+                (5, MarkEntry::marked(3.0 + 1.0 / 3.0)),
             ]),
         )]);
         let setup = Setup {
             categories: categories.clone(),
             assessments: assessments.iter().map(Assessment::engine).collect(),
             policy: MissingPolicy::Ignore,
+            levels: crate::engine::Levels::default(),
         };
         let sd = SubjectData {
             subject: Subject { id: 1, class_id: 1, name: "Science".into(), report_style: "percent".into() },
@@ -534,8 +559,12 @@ mod tests {
         let opts = Options { show_signature: true, ..Options::default() };
         let subj =
             subject_model(&sd, &student, &Scale::ontario_letters(), &opts, ("Great work, #1! <b>x</b>".into(), "Keep $going$".into()));
-        assert_eq!(subj.overall_pct, "85.0%");
+        // 85% in Knowledge (85%), Level 3+ = 80% in Participation (15%).
+        assert_eq!(subj.overall_pct, "84.3%");
         assert_eq!(subj.missing_list, vec!["Lab $x$".to_string()]);
+        assert_eq!(subj.categories[1].label, "Level 3+");
+        let level_row = subj.units.iter().flat_map(|u| &u.rows).find(|r| r.name.starts_with("Participation")).unwrap();
+        assert_eq!((level_row.label.as_str(), level_row.pct.as_str()), ("Level 3+", ""));
         let model = Model {
             school: "École Saint-Joseph & Co".into(),
             subtitle: "Progress Report  ·  Semester 1".into(),
