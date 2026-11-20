@@ -1,12 +1,17 @@
 name: Test
 
-# Format, lint and test on every OS the app ships for. Called by the image
-# and release workflows so nothing is published from code that fails.
+# Format, lint and test on every OS the app ships for. Called by CI, and by
+# the release workflow when a tagged commit wasn't already tested on main.
 on:
   workflow_call:
 
 permissions:
   contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # No debug info in test builds: faster linking and a smaller cache.
+  CARGO_PROFILE_DEV_DEBUG: 0
 
 jobs:
   test:
@@ -23,24 +28,24 @@ jobs:
 
       - name: Install Rust
         shell: bash
-        run: rustup toolchain install stable --profile minimal --component clippy,rustfmt && rustup default stable
+        run: |
+          components=""
+          [ "$RUNNER_OS" = Linux ] && components="--component clippy,rustfmt"
+          rustup toolchain install stable --profile minimal $components && rustup default stable
 
-      - name: Cache Rust build
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+      # Caches only dependencies, keyed on Cargo.lock, and saves only from main
+      # (caches from PRs and tags can't be reused, so saving them wastes the quota).
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2.9.3
         with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: cargo-test-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
-          restore-keys: cargo-test-${{ runner.os }}-
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
+      # Formatting and lints don't depend on the OS, so they run once.
       - name: Format
         if: runner.os == 'Linux'
         run: cargo fmt --check
 
       - name: Lint
+        if: runner.os == 'Linux'
         run: cargo clippy --locked --all-targets -- -D clippy::correctness -D clippy::suspicious
 
       - name: Test

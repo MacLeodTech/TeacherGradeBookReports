@@ -1,24 +1,20 @@
-name: Release local binaries
+name: Binaries
 
-# On a version tag, build `gradebook` for teachers' own computers and attach
-# the binaries to the GitHub release, once the tests pass. The repo is public:
-# GitHub-hosted runners.
+# Build `gradebook` for teachers' own computers and keep each one as a run
+# artifact. Called by CI on main (so a release only has to publish them) and
+# by the release workflow when CI didn't build the tagged commit.
 on:
-  push:
-    tags:
-      - "v*.*.*"
-  workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
 
-jobs:
-  test:
-    uses: ./.github/workflows/test.yml
+env:
+  CARGO_TERM_COLOR: always
 
+jobs:
   build:
     name: Build ${{ matrix.name }}
-    needs: test
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -37,16 +33,10 @@ jobs:
           rustup toolchain install stable --profile minimal --target ${{ matrix.target }}
           rustup default stable
 
-      - name: Cache Rust build
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2.9.3
         with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: cargo-release-${{ matrix.target }}-${{ hashFiles('Cargo.lock') }}
-          restore-keys: cargo-release-${{ matrix.target }}-
+          key: ${{ matrix.target }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Build
         shell: bash
@@ -57,22 +47,16 @@ jobs:
         run: |
           mkdir -p dist
           bin="target/${{ matrix.target }}/release/${{ matrix.exe }}"
-          if [ "${{ runner.os }}" = "Windows" ]; then
+          if [ "$RUNNER_OS" = Windows ]; then
             7z a "dist/gradebook-${{ matrix.name }}.zip" "./$bin"
           else
-            strip "$bin" || true
             tar -C "$(dirname "$bin")" -czf "dist/gradebook-${{ matrix.name }}.tar.gz" "${{ matrix.exe }}"
           fi
 
-      - name: Attach to the release
-        if: startsWith(github.ref, 'refs/tags/')
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 \
-            || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes \
-            || true   # another matrix job may have just created it
-          gh release upload "$GITHUB_REF_NAME" dist/* --clobber
-    permissions:
-      contents: write
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: gradebook-${{ matrix.name }}
+          path: dist/*
+          if-no-files-found: error
+          compression-level: 0  # already compressed
+          retention-days: 30
