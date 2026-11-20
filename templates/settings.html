@@ -72,9 +72,44 @@
     <div class="card-body row g-3">
       <div class="col-md-6"><label class="form-label">Board / district (header line)</label><input class="form-control" name="board_name" value="{{ settings.board_name }}" placeholder="e.g. Halton District School Board"></div>
       <div class="col-md-6"><label class="form-label">Default report title</label><input class="form-control" name="report_title" value="{{ settings.report_title }}"></div>
-      <div class="col-md-3"><label class="form-label" for="primary_color">Main colour</label><input class="form-control form-control-color w-100" type="color" id="primary_color" name="primary_color" value="{{ settings.primary_color }}"></div>
-      <div class="col-md-3"><label class="form-label" for="accent_color">Accent colour</label><input class="form-control form-control-color w-100" type="color" id="accent_color" name="accent_color" value="{{ settings.accent_color }}"></div>
-      <div class="col-md-6 d-flex align-items-end"><div class="form-text mb-2">Your school's colours, for the banners and headings on PDF reports. Text on them switches to black or white automatically so it stays readable. Gradebook itself keeps its own colours.</div></div>
+      <div class="col-12">
+        <div class="form-label fw-semibold mb-1">School colours</div>
+        <p class="form-text mt-0">Pick your school's two colours. The main colour fills the banners. The second colour is
+          used only for the thin trim stripes and lines. Tables and panels use soft tints of the main colour, so text is
+          always easy to read, whatever colours you choose.</p>
+      </div>
+      <div class="col-md-5">
+        {% set swatches = [("#002855","Navy"),("#0033A0","Royal blue"),("#4B9CD3","Sky blue"),("#00843D","Green"),("#154734","Forest green"),("#7A0019","Maroon"),("#C8102E","Red"),("#E87722","Orange"),("#FFC72C","Gold"),("#4B2E83","Purple"),("#000000","Black"),("#75787B","Grey"),("#FFFFFF","White")] %}
+        <label class="form-label" for="primary_color">Main colour <span class="text-muted small">(banners)</span></label>
+        <input class="form-control form-control-color w-100" type="color" id="primary_color" name="primary_color" value="{{ settings.primary_color }}">
+        <div class="swatches mt-2" data-for="primary_color">{% for c, n in swatches %}<button type="button" class="swatch" style="--c: {{ c }}" data-color="{{ c }}" title="{{ n }}" aria-label="Main colour: {{ n }}"></button>{% endfor %}</div>
+        <label class="form-label mt-3" for="accent_color">Second colour <span class="text-muted small">(trim)</span></label>
+        <input class="form-control form-control-color w-100" type="color" id="accent_color" name="accent_color" value="{{ settings.accent_color }}">
+        <div class="swatches mt-2" data-for="accent_color">{% for c, n in swatches %}<button type="button" class="swatch" style="--c: {{ c }}" data-color="{{ c }}" title="{{ n }}" aria-label="Second colour: {{ n }}"></button>{% endfor %}</div>
+        <button type="button" class="btn btn-outline-secondary btn-sm mt-3" id="swap_colors"><i class="bi bi-arrow-left-right"></i> Swap the two colours</button>
+      </div>
+      <div class="col-md-7">
+        <div class="form-label">Preview</div>
+        <div class="report-mock" id="report_mock" aria-hidden="true">
+          <div class="rm-banner"><strong>{{ user.school or "Your School" }}</strong><span>{{ settings.report_title }}</span></div>
+          <div class="rm-trim"></div>
+          <div class="rm-body">
+            <div class="rm-name">Student Name</div>
+            <div class="rm-rule"></div>
+            <div class="rm-section">Science<span>Overall: 84%</span></div>
+            <table class="rm-table">
+              <tr class="rm-head"><td>Category</td><td>Weight</td><td>Average</td></tr>
+              <tr><td>Knowledge</td><td class="rm-muted">60%</td><td class="rm-grade">85%</td></tr>
+              <tr class="rm-pale"><td>Application</td><td class="rm-muted">40%</td><td class="rm-grade">82%</td></tr>
+              <tr class="rm-group"><td colspan="3">Unit 1</td></tr>
+              <tr><td>Quiz 1</td><td class="rm-muted">17 / 20</td><td class="rm-grade">85%</td></tr>
+            </table>
+          </div>
+          <div class="rm-trim"></div>
+          <div class="rm-banner rm-footer"><span>Page 1 of 1</span></div>
+        </div>
+        <div class="form-text" id="swap_note" hidden>Your main colour is too light for banners, so reports use the second colour for them instead.</div>
+      </div>
     </div>
   </div>
 
@@ -170,3 +205,4 @@
 </div>
 {% endif %}
 {% endblock %}
+{% block scripts %}<script src="/static/js/settings.js"></script>{% endblock %}

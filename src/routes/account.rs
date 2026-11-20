@@ -1,5 +1,6 @@
 use axum::{
-    extract::{Multipart, State},
+    Json,
+    extract::{Multipart, Query, State},
     http::header,
     response::{IntoResponse, Response},
 };
@@ -23,6 +24,19 @@ pub async fn setup_page(State(state): State<AppState>, auth: Auth) -> AppResult<
 
 pub async fn settings_page(State(state): State<AppState>, auth: Auth) -> AppResult<Response> {
     render(&state, &auth, "settings.html", ctx! { setup => false, has_term => true }).await
+}
+
+#[derive(serde::Deserialize)]
+pub struct PaletteQ {
+    #[serde(default)]
+    main: String,
+    #[serde(default)]
+    second: String,
+}
+
+/// The report colours a pair of school colours gives, for the live preview.
+pub async fn palette(_auth: Auth, Query(q): Query<PaletteQ>) -> Json<crate::color::Palette> {
+    Json(crate::color::palette(&q.main, &q.second))
 }
 
 pub async fn settings_save(State(state): State<AppState>, auth: Auth, f: F) -> AppResult<Response> {

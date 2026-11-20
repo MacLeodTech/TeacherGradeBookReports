@@ -392,3 +392,34 @@ tr.st-row-excused td { color: var(--gb-muted); }
 
 /* Scrollbars that match the theme (the grid scrolls both ways). */
 .gb-grid-wrap, .bank-menu { scrollbar-color: var(--gb-border-strong) transparent; }
+
+/* Settings: school colours. The preview is a paper mock of the PDF, so it
+   stays white in dark mode; its colours come from /settings/palette. */
+.swatches { display: flex; flex-wrap: wrap; gap: .3rem; }
+.swatch { width: 1.6rem; height: 1.6rem; border-radius: 50%; background: var(--c); border: 1px solid var(--gb-border-strong); padding: 0; }
+.swatch[aria-pressed="true"] { outline: 2px solid var(--gb-primary-text); outline-offset: 2px; }
+.swatch:focus-visible { outline: 2px solid var(--gb-primary-text); outline-offset: 2px; }
+.report-mock {
+  --rm-banner: #003F5A; --rm-on-banner: #FFF; --rm-trim: #B1D2E1; --rm-rule: #B1D2E1; --rm-heading: #003F5A;
+  --rm-muted: #555; --rm-ink: #1A1A1A; --rm-head-fill: #DDE6EA; --rm-group-fill: #E6EDF0; --rm-pale: #F3F6F7; --rm-line: #B3C5CE;
+  background: #FFF; color: var(--rm-ink); border: 1px solid var(--gb-border); border-radius: .4rem; overflow: hidden;
+  font-size: .8rem; box-shadow: 0 1px 4px rgba(0, 0, 0, .12); color-scheme: light;
+}
+.rm-banner { background: var(--rm-banner); color: var(--rm-on-banner); text-align: center; padding: .55rem .5rem .45rem; line-height: 1.2; }
+.rm-banner strong { display: block; font-size: 1rem; }
+.rm-banner span { font-size: .72rem; }
+.rm-footer { padding: .3rem; text-align: right; }
+.rm-trim { height: 4px; background: var(--rm-trim); }
+.rm-body { padding: .7rem .9rem .9rem; }
+.rm-name { color: var(--rm-heading); font-weight: 700; font-size: 1.15rem; }
+.rm-rule { height: 2px; background: var(--rm-rule); margin: .25rem 0 .6rem; }
+.rm-section { background: var(--rm-banner); color: var(--rm-on-banner); font-weight: 700; padding: .25rem .5rem; border-radius: .2rem .2rem 0 0; display: flex; justify-content: space-between; }
+.rm-section span { font-weight: 400; }
+.rm-table { width: 100%; border-collapse: collapse; }
+.rm-table td { padding: .2rem .5rem; border-bottom: 1px solid var(--rm-line); }
+.rm-table td:not(:first-child) { text-align: center; }
+.rm-head td { background: var(--rm-head-fill); color: var(--rm-heading); font-weight: 700; font-size: .7rem; border-top: 2px solid var(--rm-banner); }
+.rm-group td { background: var(--rm-group-fill); color: var(--rm-heading); font-weight: 700; text-align: left !important; }
+.rm-pale td { background: var(--rm-pale); }
+.rm-muted { color: var(--rm-muted); }
+.rm-grade { color: #1A7340; font-weight: 700; }

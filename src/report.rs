@@ -83,11 +83,8 @@ struct Model {
     footer: String,
     title: String,
     date: String,
-    primary: String,
-    /// Text on the main colour (black or white) and the main colour as readable text.
-    on_primary: String,
-    primary_text: String,
-    accent: String,
+    /// Every colour on the report, derived from the school colours.
+    colors: crate::color::Palette,
     has_logo: bool,
     student: StudentM,
     meta_lines: Vec<String>,
@@ -403,17 +400,13 @@ pub fn build_json(c: &Connection, input: &ReportInput) -> AppResult<String> {
     };
 
     let footer = if s.board_name.is_empty() { school.clone() } else { format!("{school} · {}", s.board_name) };
-    let brand = crate::color::brand(&s.primary_color);
     let model = Model {
         subtitle: format!("{title}  ·  {period}"),
         footer,
         school,
         title,
         date: today_long(),
-        primary: s.primary_color.clone(),
-        on_primary: brand.on_primary,
-        primary_text: brand.text,
-        accent: s.accent_color.clone(),
+        colors: crate::color::palette(&s.primary_color, &s.accent_color),
         has_logo: s.has_logo,
         student: StudentM { name },
         meta_lines,
@@ -447,10 +440,7 @@ pub fn check_logo(bytes: &[u8]) -> Result<(), String> {
         footer: String::new(),
         title: "Logo check".into(),
         date: String::new(),
-        primary: "#003F5A".into(),
-        on_primary: "#FFFFFF".into(),
-        primary_text: "#003F5A".into(),
-        accent: "#B1D2E1".into(),
+        colors: crate::color::palette(crate::color::DEFAULT_MAIN, crate::color::DEFAULT_TRIM),
         has_logo: true,
         student: StudentM { name: "Test".into() },
         meta_lines: vec![],
@@ -571,10 +561,11 @@ mod tests {
             footer: "École".into(),
             title: "Progress Report".into(),
             date: today_long(),
-            primary: "#003F5A".into(),
-            on_primary: "#FFFFFF".into(),
-            primary_text: "#003F5A".into(),
-            accent: "#B1D2E1".into(),
+            // REPORT_SAMPLE_COLORS="#main,#second" to look at other school colours.
+            colors: match std::env::var("REPORT_SAMPLE_COLORS").ok().as_deref().and_then(|v| v.split_once(',')) {
+                Some((m, t)) => crate::color::palette(m, t),
+                None => crate::color::palette("#0033A0", "#C8102E"),
+            },
             has_logo: false,
             student: StudentM { name: student.full_name() },
             meta_lines: vec!["Report date: today".into(), "Teacher: Ms. M".into()],

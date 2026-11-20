@@ -5,15 +5,21 @@
 // The optional logo arrives as bytes in sys.inputs.logo.
 
 #let d = json(bytes(sys.inputs.data))
-#let primary = rgb(d.primary)
-#let accent = rgb(d.accent)
-#let pale = accent.lighten(65%)
-#let ink = rgb("#1A1A1A")
-// Text on the main colour is black or white, whichever reads better, and the
-// main colour is darkened (only if it's pale) where it's used as text.
-#let on-primary = rgb(d.on_primary)
-#let primary-ink = rgb(d.primary_text)
-#let muted = primary-ink.lighten(25%)
+// Colours come ready-made from src/color.rs: banners in the main school
+// colour, trim stripes in the second, and tints of the main colour behind
+// text, so text never sits on a colour it can't be read on.
+#let c = d.colors
+#let primary = rgb(c.banner)
+#let on-primary = rgb(c.on_banner)
+#let trim = rgb(c.trim)
+#let rule = rgb(c.rule)
+#let primary-ink = rgb(c.heading)
+#let muted = rgb(c.muted)
+#let ink = rgb(c.ink)
+#let head-fill = rgb(c.head_fill)
+#let group-fill = rgb(c.group_fill)
+#let pale = rgb(c.pale)
+#let hairline = rgb(c.line)
 
 #set document(title: d.student.name + " – " + d.title)
 #set text(font: "Source Sans 3", size: 9.5pt, fill: ink, lang: "en")
@@ -25,19 +31,18 @@
   background: context {
     // Header banner
     place(top + left, rect(width: 100%, height: 0.75in, fill: primary))
-    place(top + left, dy: 0.75in, rect(width: 100%, height: 0.035in, fill: accent))
+    place(top + left, dy: 0.75in, rect(width: 100%, height: 0.05in, fill: trim))
     if d.has_logo {
       place(top + left, dx: 0.4in, dy: 0.125in, box(height: 0.5in, image(sys.inputs.logo, height: 0.5in)))
     }
     place(top + center, dy: 0.16in, align(center)[
       #text(fill: on-primary, size: 15pt, weight: "bold", d.school)
       #v(-0.55em)
-      // The pale accent tint only reads on a dark banner.
-      #text(fill: if d.on_primary == "#FFFFFF" { accent.lighten(30%) } else { on-primary }, size: 9pt, d.subtitle)
+      #text(fill: on-primary, size: 9pt, d.subtitle)
     ])
     // Footer banner
     place(bottom + left, rect(width: 100%, height: 0.45in, fill: primary))
-    place(bottom + left, dy: -0.45in, rect(width: 100%, height: 0.035in, fill: accent))
+    place(bottom + left, dy: -0.45in, rect(width: 100%, height: 0.05in, fill: trim))
     let ft = (body) => text(fill: on-primary, size: 7.5pt, body)
     place(bottom + left, dx: 0.5in, dy: -0.17in, ft("Generated " + d.date))
     place(bottom + center, dy: -0.17in, ft(d.footer))
@@ -49,7 +54,7 @@
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 #let bar(frac, color, width: 1.3in) = box(
-  width: width, height: 6pt, fill: pale, stroke: 0.4pt + accent, radius: 1pt, clip: true,
+  width: width, height: 6pt, fill: pale, stroke: 0.4pt + hairline, radius: 1pt, clip: true,
   if frac > 0 { place(left, rect(width: calc.min(frac, 1.0) * 100%, height: 6pt, fill: rgb(color), radius: 1pt)) },
 )
 
@@ -77,7 +82,7 @@
   ],
 )
 #v(2pt)
-#line(length: 100%, stroke: 2pt + accent)
+#line(length: 100%, stroke: 2pt + rule)
 #v(4pt)
 
 // ── Summary ──────────────────────────────────────────────────────────────────
@@ -98,7 +103,7 @@
     table(
       columns: (1fr, auto, auto, auto, 1.4in),
       stroke: none,
-      fill: (_, y) => if y == 0 { accent.lighten(20%) } else if calc.even(y) { pale } else { white },
+      fill: (_, y) => if y == 0 { head-fill } else if calc.even(y) { pale } else { white },
       inset: (x: 7pt, y: 5pt),
       align: (left + horizon, center + horizon, center + horizon, center + horizon, center + horizon),
       hdr[Subject], hdr[Grade], hdr[], hdr[Submitted], hdr[],
@@ -117,7 +122,7 @@
   v(6pt)
   let n = d.legend.len()
   let cols = if n > 7 { calc.ceil(n / 2) } else { n }
-  block(width: 100%, fill: pale, stroke: 0.5pt + accent, radius: 2pt, inset: 4pt,
+  block(width: 100%, fill: pale, stroke: 0.5pt + hairline, radius: 2pt, inset: 4pt,
     grid(columns: (1fr,) * cols, row-gutter: 3pt, align: center,
       ..d.legend.map(b => text(size: 7.5pt)[#text(fill: rgb(b.color), weight: "bold", b.label) #h(2pt) #b.range]),
     ),
@@ -146,8 +151,8 @@
   if d.options.show_categories and s.categories.len() > 0 {
     table(
       columns: (1fr, auto, auto, auto, 1.5in),
-      stroke: (x, y) => (x: none, bottom: 0.4pt + accent.lighten(30%)),
-      fill: (_, y) => if y == 0 { accent.lighten(20%) } else { white },
+      stroke: (x, y) => (x: none, bottom: 0.4pt + hairline),
+      fill: (_, y) => if y == 0 { head-fill } else { white },
       inset: (x: 7pt, y: 4.5pt),
       align: (left + horizon, center + horizon, center + horizon, center + horizon, center + horizon),
       table.hline(stroke: 1pt + primary),
@@ -167,8 +172,8 @@
     let rows = ()
     for u in s.units {
       if u.name != "" and s.units.len() > 1 {
-        rows.push(table.cell(colspan: 4, fill: accent.lighten(45%), text(weight: "bold", fill: primary-ink, u.name)))
-        rows.push(table.cell(fill: accent.lighten(45%), align: right, if u.avg != "—" { text(weight: "bold", fill: rgb(u.color), u.avg + " " + u.label) }))
+        rows.push(table.cell(colspan: 4, fill: group-fill, text(weight: "bold", fill: primary-ink, u.name)))
+        rows.push(table.cell(fill: group-fill, align: right, if u.avg != "—" { text(weight: "bold", fill: rgb(u.color), u.avg + " " + u.label) }))
       }
       for a in u.rows {
         rows.push(a.name)
@@ -184,8 +189,8 @@
     }
     table(
       columns: (1fr, auto, auto, auto, 1.5in),
-      stroke: (x, y) => (x: none, bottom: 0.4pt + accent.lighten(30%)),
-      fill: (_, y) => if y == 0 { accent.lighten(20%) } else if calc.even(y) { pale.lighten(40%) } else { white },
+      stroke: (x, y) => (x: none, bottom: 0.4pt + hairline),
+      fill: (_, y) => if y == 0 { head-fill } else if calc.even(y) { pale } else { white },
       inset: (x: 7pt, y: 4pt),
       align: (left + horizon, center + horizon, center + horizon, center + horizon, center + horizon),
       table.hline(stroke: 1pt + primary),
@@ -197,7 +202,7 @@
   // Completion items (e.g. journals)
   if s.completion.len() > 0 {
     v(4pt)
-    block(width: 100%, stroke: 0.5pt + accent, radius: 2pt, inset: 6pt, below: 0pt)[
+    block(width: 100%, stroke: 0.5pt + hairline, radius: 2pt, inset: 6pt, below: 0pt)[
       #text(weight: "bold", fill: primary-ink)[#s.completion_title]
       #h(6pt) #text(size: 8.5pt, fill: muted, s.completion_summary)
       #v(-2pt)
@@ -222,7 +227,7 @@
   // Comments
   if d.options.show_comments and (s.comment != "" or s.next_steps != "") {
     v(4pt)
-    block(width: 100%, stroke: 0.5pt + accent, radius: 2pt, inset: 7pt, below: 0pt)[
+    block(width: 100%, stroke: 0.5pt + hairline, radius: 2pt, inset: 7pt, below: 0pt)[
       #if s.comment != "" [
         #text(weight: "bold", fill: primary-ink)[Teacher Comments] \
         #s.comment
@@ -245,7 +250,7 @@
     #banner("Learning Skills and Work Habits")
     #table(
       columns: (1fr, auto) * 2,
-      stroke: (x, y) => (x: none, bottom: 0.4pt + accent.lighten(30%)),
+      stroke: (x, y) => (x: none, bottom: 0.4pt + hairline),
       inset: (x: 7pt, y: 4.5pt),
       align: (left, center, left, center),
       ..d.skills.map(k => (k.name, text(weight: "bold", fill: primary-ink, k.rating))).flatten(),
@@ -257,7 +262,7 @@
 
 // ── Closing ──────────────────────────────────────────────────────────────────
 
-#line(length: 100%, stroke: 1pt + accent)
+#line(length: 100%, stroke: 1pt + rule)
 #align(center, text(size: 8.5pt, style: "italic", fill: muted, d.contact))
 
 #if d.options.show_signature {

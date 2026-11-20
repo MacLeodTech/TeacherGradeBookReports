@@ -100,7 +100,8 @@ docker compose up -d --build
 ```
 
 Open http://localhost:8000 and sign in as the admin. The first sign-in walks through setup (teaching level,
-periods, report colours, first term). Add more teacher accounts under **Accounts**.
+periods, school colours, first term). The main school colour fills the report banners, the second is
+used for trim, and tables use soft tints of the main colour, so any pair of colours stays readable. Add more teacher accounts under **Accounts**.
 
 Put it behind HTTPS (a reverse proxy such as Caddy, Traefik or nginx) before using real student data, and
 set `TRUST_PROXY=true` when you do.
@@ -186,6 +187,7 @@ COOKIE_SECURE=false DB_PATH=./dev.db ADMIN_USERNAME=admin ADMIN_PASSWORD=Passwor
 | `src/db.rs` | Database, migrations, in-memory teacher workspaces and the write guard |
 | `src/local.rs`, `src/oidc.rs`, `src/audit.rs` | Local mode, board single sign-on, audit and retention |
 | `src/report.rs`, `report/report.typ` | PDF reports (Typst, fonts embedded) |
+| `src/color.rs` | Report colours: the school's two colours turned into a readable palette |
 | `static/js/grid.js` | The mark grid |
 | `migrations/` | SQL schema |
 | `docs/ROADMAP.md` | Design notes and status |
