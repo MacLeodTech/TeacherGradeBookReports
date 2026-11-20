@@ -265,7 +265,46 @@ Answered 2026-11-20:
 | Tablet and phone layout: tap a cell to edit, bigger touch targets, narrower frozen columns, scrolling tables | `static/app.css`, `static/js/grid.js` |
 | Privacy and deployment guide | `docs/PRIVACY.md` |
 
-## 10. Deployment options
+## 10. Next: keep the workbook in OneDrive or Google Drive
+
+_Added 2026-11-20. Not started._
+
+**Goal:** the teacher picks a workbook in her cloud storage. Gradebook opens it from there and saves back to the
+same file, so she can work from several devices and always get the same file.
+
+**Why it fits:** the workbook is already the system of record in memory mode (section 9), so this only changes where
+that one file is read from and written to. It is also the most teacher-friendly answer to "where do I keep the file?".
+
+**Options, simplest first:**
+
+1. **Synced folder, no integration.** The teacher keeps the workbook in her OneDrive or Google Drive desktop folder.
+   Local mode gets "open/save in this folder" and remembers the path; on a browser, use the File System Access API
+   to keep a handle to the file. No accounts, tokens or board approval for a new service. Works today by hand
+   (download, then upload), so this mostly removes the steps. Weak on tablets and phones, which can't see the folder.
+2. **Microsoft OneDrive via Microsoft Graph** (OAuth, `Files.ReadWrite`, or the app-folder scope if the teacher
+   doesn't mind a dedicated folder). Many Ontario boards are Microsoft 365 schools, so this is likely the first one wanted.
+3. **Google Drive** (OAuth, `drive.file`, so the app only sees files it created or the teacher opened with a picker).
+   Boards on Google Workspace for Education.
+
+**Things to decide before building:**
+- **Board policy.** Cloud storage may be approved for a board account and not for a personal one. Use SSO or the board
+  tenant, and let a board turn the feature off (`CLOUD_STORAGE=off`). Add it to the questions in `docs/PRIVACY.md`.
+- **Tokens.** In memory mode the server has no student data today. Cloud access tokens are credentials, so keep them in
+  the signed-in session only (not the database) and let the teacher disconnect. In local mode, store them in the
+  app's data folder or the OS keychain.
+- **Conflicts.** Two devices editing at once. Save with the file's version tag (ETag or revision) and, if it moved,
+  show "this file changed elsewhere": reload, or save a copy. Never overwrite silently. Mark the grid "saved to OneDrive 2:14 pm".
+- **Autosave.** Saving to the cloud on every cell edit is too chatty. Save after a short pause and on sign-out, and
+  keep the existing manual **Save workbook**.
+- **Local mode redirect.** OAuth to a program on `127.0.0.1` works (loopback redirect) but each provider needs
+  its own app registration, and Microsoft/Google review for production use.
+- **Large file.** The workbook is a few hundred KB, so a simple whole-file upload is fine; no sync protocol needed.
+
+**Suggested order:** (1) synced-folder open/save, which is quick and needs no registration; then (2) OneDrive; then
+(3) Google Drive, behind one small "storage provider" interface (`list`, `read` with a version tag, `write` if the
+version matches) so the second provider is mostly mapping.
+
+## 11. Deployment options
 
 The same features in three deployments; only where student data lives between sessions differs:
 
