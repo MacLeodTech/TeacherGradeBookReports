@@ -29,6 +29,7 @@
   <span class="ms-auto small text-muted d-none d-md-inline">
     Type a mark (17, 17/20, 85%) · <kbd>M</kbd> missing · <kbd>X</kbd> excused · <kbd>?</kbd> to mark · add <kbd>L</kbd> for late · paste from Excel
   </span>
+  <button type="button" class="btn btn-outline-secondary btn-sm" data-action="shortcuts" title="Keyboard shortcuts (?)"><i class="bi bi-keyboard"></i><span class="visually-hidden">Keyboard shortcuts</span></button>
 </div>
 <div id="grid-warnings"></div>
 <div class="gb-grid-wrap" id="grid" data-subject="{{ current.id }}" data-class="{{ class.id }}" {% if class.archived %}data-readonly="1"{% endif %}>
@@ -63,6 +64,49 @@
         <button class="btn btn-primary">Save</button>
       </div>
     </form>
+  </div>
+</div>
+<div class="modal fade" id="shortcuts-modal" tabindex="-1" aria-labelledby="shortcuts-title" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><h2 class="modal-title h5" id="shortcuts-title"><i class="bi bi-keyboard"></i> Keyboard shortcuts</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+      <div class="modal-body row g-4 small">
+        <div class="col-md-6">
+          <h3 class="h6">Moving around</h3>
+          <table class="table table-sm keys mb-0"><tbody>
+            <tr><td><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd></td><td>Move between cells</td></tr>
+            <tr><td><kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd></td><td>Next / previous column</td></tr>
+          </tbody></table>
+          <h3 class="h6 mt-3">Entering marks</h3>
+          <table class="table table-sm keys mb-0"><tbody>
+            <tr><td>Start typing</td><td>Replace the cell</td></tr>
+            <tr><td><kbd>Enter</kbd> or <kbd>F2</kbd></td><td>Change the cell's mark</td></tr>
+            <tr><td><kbd>Enter</kbd> / <kbd>Shift</kbd>+<kbd>Enter</kbd></td><td>Save, then move down / up</td></tr>
+            <tr><td><kbd>Tab</kbd></td><td>Save, then move right</td></tr>
+            <tr><td><kbd>Esc</kbd></td><td>Cancel the change</td></tr>
+            <tr><td><kbd>Delete</kbd></td><td>Clear the cell</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>V</kbd></td><td>Paste a block from Excel or Google Sheets</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>Undo the last change</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>Print the grid</td></tr>
+          </tbody></table>
+        </div>
+        <div class="col-md-6">
+          <h3 class="h6">What you can type</h3>
+          <table class="table table-sm keys mb-0"><tbody>
+            <tr><td><kbd>17</kbd></td><td>17 out of the column's total</td></tr>
+            <tr><td><kbd>17/20</kbd></td><td>17 out of 20 (rescaled if the column is out of something else)</td></tr>
+            <tr><td><kbd>85%</kbd></td><td>A percentage</td></tr>
+            <tr><td><kbd>15L</kbd></td><td>Handed in late (counts as normal, noted)</td></tr>
+            <tr><td><kbd>M</kbd></td><td>Missing</td></tr>
+            <tr><td><kbd>X</kbd></td><td>Excused (not counted)</td></tr>
+            <tr><td><kbd>?</kbd></td><td>Handed in, to mark</td></tr>
+            <tr><td><kbd>1</kbd>–<kbd>4</kbd>, <kbd>3+</kbd>, <kbd>R</kbd></td><td>Levels, in a Level 1–4 column</td></tr>
+            <tr><td><kbd>Y</kbd> / <kbd>N</kbd></td><td>Done / not done (missing), in a done column</td></tr>
+          </tbody></table>
+          <p class="text-muted mt-3 mb-0">After you type a mark, the line above the grid shows how it was read.</p>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 {% else %}

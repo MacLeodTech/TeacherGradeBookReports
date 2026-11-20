@@ -42,7 +42,9 @@ fn grid_json(c: &Connection, user_id: i64, subject_id: i64, errors: Vec<Value>) 
         if let Some(ms) = sd.marks.get(&st.id) {
             for (aid, m) in ms {
                 let kind = sd.assessments.iter().find(|a| a.id == *aid).map_or(Kind::Scored, |a| Kind::parse(&a.kind));
-                row.insert(aid.to_string(), json!({ "text": display_mark(kind, m), "status": m.status.as_str() }));
+                // The percentage the mark counts as, for the hint after typing.
+                let pct = sd.setup.assessments.iter().find(|a| a.id == *aid).and_then(|a| crate::engine::mark_pct(a, m, &sd.setup.levels));
+                row.insert(aid.to_string(), json!({ "text": display_mark(kind, m), "status": m.status.as_str(), "pct": pct }));
             }
         }
         cells.insert(st.id.to_string(), Value::Object(row));

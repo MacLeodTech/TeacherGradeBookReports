@@ -191,12 +191,36 @@
     try {
       data = await api(`/api/subjects/${subjectId}/marks`, { changes, source });
       render();
-      if (!data.errors.length) setStatus(`Saved ${changes.length === 1 ? "" : changes.length + " cells "}✓`);
+      if (!data.errors.length) {
+        const hint = changes.length === 1 ? describe(changes[0].student_id, changes[0].assessment_id) : "";
+        setStatus(hint ? `Saved ✓ ${hint}` : `Saved ${changes.length === 1 ? "" : changes.length + " cells "}✓`);
+      }
     } catch (e) {
       setStatus(e.message + " Your last change was not saved.", "error");
     } finally {
       saving--;
     }
+  }
+
+  // How the server read what was typed, e.g. "Doe, John · Quiz 1: 17/20 = 85.0%".
+  function describe(sid, aid) {
+    const a = data.assessments.find((x) => x.id === aid);
+    const st = data.students.find((x) => x.id === sid);
+    if (!a || !st) return "";
+    const c = (data.cells[sid] || {})[aid];
+    const who = `${st.name} · ${a.name}: `;
+    if (!c) return who + "cleared";
+    const late = c.status === "late" ? "late, " : "";
+    const counted = a.weight === 0 && a.kind !== "completion" ? " (formative, not counted)" : "";
+    const value = c.text.replace(/L$/, "");
+    switch (c.status) {
+      case "missing": return who + (data.policy === "zero" ? "missing, counts as 0" : "missing, left out of the average and flagged on the report");
+      case "excused": return who + "excused, not counted";
+      case "pending": return who + "handed in, to mark (not counted yet)";
+    }
+    if (a.kind === "completion") return who + late + (c.pct ? "done" : "not done");
+    if (a.kind === "level") return who + late + `Level ${value}` + (c.pct != null ? ` = ${pct(c.pct)}` : "") + counted;
+    return who + late + `${value}/${num(a.out_of)}` + (c.pct != null ? ` = ${pct(c.pct)}` : "") + counted;
   }
 
   async function load() {
@@ -219,6 +243,21 @@
   root.addEventListener("dblclick", (e) => {
     const td = e.target.closest("td.cell");
     if (td) startEdit(td);
+  });
+
+  // Keyboard shortcuts list: the button, or "?" when no cell is focused
+  // (in a cell, "?" means "to mark").
+  const keysEl = document.getElementById("shortcuts-modal");
+  const showKeys = () => keysEl && bootstrap.Modal.getOrCreateInstance(keysEl).show();
+  document.querySelector('[data-action="shortcuts"]')?.addEventListener("click", showKeys);
+  document.addEventListener("keydown", (e) => {
+    const t = e.target;
+    const typing = t.closest && (t.closest("input, textarea, select, [contenteditable], td.cell") || t.closest(".modal"));
+    if (e.key === "?" && !typing) { e.preventDefault(); showKeys(); }
+    // Ctrl+Z / Cmd+Z: undo the last change (when not typing in a box).
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z" && !editing && !(t.closest && t.closest("input, textarea, .modal"))) {
+      if (undoBtn && !undoBtn.disabled) { e.preventDefault(); undoBtn.click(); }
+    }
   });
 
   root.addEventListener("keydown", (e) => {
