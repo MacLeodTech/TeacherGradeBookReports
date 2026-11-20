@@ -224,3 +224,7 @@ tag at build time. Pushing a `v*.*.*` tag by hand still works (`release.yml`).
 
 Fonts: Source Sans 3, SIL Open Font License (`assets/fonts/OFL.txt`), used in the PDFs and, as a Latin subset in
 `static/vendor/fonts/`, on the site.
+
+## License
+
+[MIT](LICENSE). Copyright (c) 2026 Scott MacLeod.
