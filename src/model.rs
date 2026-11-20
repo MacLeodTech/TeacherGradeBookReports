@@ -247,6 +247,8 @@ pub struct Assessment {
     pub kind: String,
     pub due_date: Option<String>,
     pub include_in_report: bool,
+    /// 0 confirmed, 1 details guessed, 2 "out of" unknown.
+    pub needs_review: i64,
 }
 
 impl Assessment {
@@ -265,7 +267,7 @@ impl Assessment {
 
 pub fn assessments(c: &Connection, subject_id: i64) -> AppResult<Vec<Assessment>> {
     let mut st = c.prepare(
-        "SELECT id, subject_id, category_id, name, unit, out_of, weight, kind, due_date, include_in_report
+        "SELECT id, subject_id, category_id, name, unit, out_of, weight, kind, due_date, include_in_report, needs_review
          FROM assessments WHERE subject_id = ?1 ORDER BY sort, id",
     )?;
     Ok(st
@@ -281,6 +283,7 @@ pub fn assessments(c: &Connection, subject_id: i64) -> AppResult<Vec<Assessment>
                 kind: r.get(7)?,
                 due_date: r.get(8)?,
                 include_in_report: r.get::<_, i64>(9)? != 0,
+                needs_review: r.get(10)?,
             })
         })?
         .collect::<Result<_, _>>()?)

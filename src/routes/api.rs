@@ -17,7 +17,7 @@ use crate::{
 };
 
 /// Turn page-style errors into JSON errors for the grid.
-fn j(e: AppError) -> AppError {
+pub(super) fn j(e: AppError) -> AppError {
     match e {
         AppError::BadRequest(m) => AppError::Json(StatusCode::BAD_REQUEST, m),
         AppError::NotFound => AppError::Json(StatusCode::NOT_FOUND, "Not found. Reload the page.".into()),
@@ -306,7 +306,7 @@ pub async fn assessment_update(auth: Auth, Path(aid): Path<i64>, Json(mut a): Js
                 )?;
             }
             tx.execute(
-                "UPDATE assessments SET category_id = ?1, name = ?2, unit = ?3, out_of = ?4, weight = ?5, kind = ?6, due_date = ?7, include_in_report = ?8 WHERE id = ?9",
+                "UPDATE assessments SET category_id = ?1, name = ?2, unit = ?3, out_of = ?4, weight = ?5, kind = ?6, due_date = ?7, include_in_report = ?8, needs_review = 0 WHERE id = ?9",
                 params![a.category_id, a.name, a.unit, a.out_of, a.weight, Kind::parse(&a.kind).as_str(), a.due_date, a.include_in_report, aid],
             )?;
             tx.commit()?;

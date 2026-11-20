@@ -572,7 +572,7 @@ pub fn apply(tx: &Transaction, user_id: i64, class_id: i64, subject_id: i64, gri
             None => {
                 sort += 1;
                 tx.execute(
-                    "INSERT INTO assessments (subject_id, category_id, name, unit, out_of, kind, sort) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                    "INSERT INTO assessments (subject_id, category_id, name, unit, out_of, kind, sort, needs_review) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
                     params![
                         subject_id,
                         if col.kind == Kind::Scored { default_cat } else { None },
@@ -580,7 +580,8 @@ pub fn apply(tx: &Transaction, user_id: i64, class_id: i64, subject_id: i64, gri
                         col.spec.unit,
                         col.out_of,
                         col.kind.as_str(),
-                        sort
+                        sort,
+                        if col.kind == Kind::Scored && col.spec.out_of.is_none() && col.scale == 1.0 { 2 } else { 0 }
                     ],
                 )?;
                 tx.last_insert_rowid()

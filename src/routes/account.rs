@@ -120,7 +120,7 @@ pub async fn settings_save(State(state): State<AppState>, auth: Auth, f: F) -> A
             "You have more classes this term than the {periods} teaching period(s) you set. Existing classes are kept; new ones are blocked until you're under the limit."
         )).await?;
     }
-    flash_to(&state, &auth.session, "success", "Settings saved.", if setup { "/" } else { "/settings" }).await
+    flash_to(&state, &auth.session, "success", "Settings saved.", if setup { "/start" } else { "/settings" }).await
 }
 
 pub fn valid_email(e: &str) -> bool {

@@ -445,6 +445,7 @@ pub fn sample_json(user: &User, s: &Settings, main: &str, second: &str) -> AppRe
         kind: kind.into(),
         due_date: None,
         include_in_report: true,
+        needs_review: 0,
     };
     let assessments = vec![
         mk(1, 1, "Cells quiz", "Unit 1: Cells", 20.0, "scored"),
@@ -610,6 +611,7 @@ mod tests {
             kind: kind.into(),
             due_date: None,
             include_in_report: true,
+            needs_review: 0,
         };
         let assessments = vec![
             mk(1, "Quiz #1 [draft] *bold*", "Unit 1", "scored"),

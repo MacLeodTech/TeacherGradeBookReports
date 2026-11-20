@@ -72,7 +72,20 @@ const TABLES: &[Table] = &[
     Table {
         name: "assessments",
         has_id: true,
-        cols: &["id", "subject_id", "category_id", "name", "unit", "out_of", "weight", "kind", "due_date", "include_in_report", "sort"],
+        cols: &[
+            "id",
+            "subject_id",
+            "category_id",
+            "name",
+            "unit",
+            "out_of",
+            "weight",
+            "kind",
+            "due_date",
+            "include_in_report",
+            "sort",
+            "needs_review",
+        ],
         owner: IN_MY_SUBJECTS,
         order: "id",
     },
@@ -215,7 +228,7 @@ pub fn save(c: &Connection, user_id: i64, owner: &Owner) -> AppResult<Vec<u8>> {
     // The data.
     let ws = wb.add_worksheet();
     ws.set_name(META_SHEET).map_err(err)?;
-    for (i, (k, v)) in [("format", FORMAT.to_string()), ("version", VERSION.to_string()), ("app", env!("CARGO_PKG_VERSION").to_string())]
+    for (i, (k, v)) in [("format", FORMAT.to_string()), ("version", VERSION.to_string()), ("app", crate::util::app_version().to_string())]
         .iter()
         .enumerate()
     {

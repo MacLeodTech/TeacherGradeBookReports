@@ -1,3 +1,12 @@
+/// The version this build reports. Releases set `GRADEBOOK_VERSION` (from the git tag, e.g. `v2.3.0`) when
+/// building; otherwise it's the version in Cargo.toml.
+pub fn app_version() -> &'static str {
+    match option_env!("GRADEBOOK_VERSION") {
+        Some(v) if !v.trim_start_matches('v').is_empty() => v.trim_start_matches('v'),
+        _ => env!("CARGO_PKG_VERSION"),
+    }
+}
+
 pub fn html_escape(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {
@@ -99,5 +108,14 @@ mod tests {
     #[test]
     fn name_keys_fold_accents() {
         assert_eq!(name_key("  Zoë   LEFÈVRE "), "zoe lefevre");
+    }
+}
+
+#[cfg(test)]
+mod version_tests {
+    #[test]
+    fn app_version_is_a_bare_version_number() {
+        let v = super::app_version();
+        assert!(!v.starts_with('v') && v.split('.').count() == 3 && v.split('.').all(|p| p.parse::<u32>().is_ok()), "{v}");
     }
 }

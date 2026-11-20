@@ -1,15 +1,30 @@
 name: Release
 
-# On a version tag: publish the downloads and the image for that commit.
-# Normally CI already tested and built that commit on main, so this only
-# reuses its downloads and adds version tags to its image (a minute or two).
-# If it didn't (the tag isn't on a commit CI built), it tests and builds here.
+# Publish the downloads and the image for a version tag.
+#
+# Normally CI calls this itself, right after it tags a merge to main (see
+# "Releases" in ci.yml), passing its own run so the downloads it just built are
+# reused: a minute or two. (A tag pushed with the workflow token doesn't start
+# other workflows, which is why CI calls this rather than waiting for the tag.)
+#
+# Pushing a v*.*.* tag by hand also works: it reuses the CI run for that commit
+# if there is one, otherwise tests and builds here.
 on:
   push:
     tags: ["v*.*.*"]
+  workflow_call:
+    inputs:
+      tag:
+        description: "The tag to publish, already pushed (e.g. v2.3.0)"
+        type: string
+        required: true
+      run_id:
+        description: "The CI run whose downloads and image to reuse"
+        type: string
+        required: true
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag || github.ref }}
 
 permissions:
   contents: read
@@ -28,7 +43,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          GIVEN_RUN_ID: ${{ inputs.run_id }}
         run: |
+          if [ -n "$GIVEN_RUN_ID" ]; then
+            echo "Reusing the calling CI run $GIVEN_RUN_ID"
+            echo "run_id=$GIVEN_RUN_ID" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           id=$(gh run list --workflow ci.yml --branch main --event push --commit "$GITHUB_SHA" \
                  --limit 1 --json databaseId -q '.[0].databaseId')
           if [ -z "$id" ]; then
@@ -54,11 +75,15 @@ jobs:
     needs: find
     if: needs.find.outputs.run_id == ''
     uses: ./.github/workflows/binaries.yml
+    with:
+      version: ${{ github.ref_name }}
 
   image:
     needs: [find, binaries]
     if: needs.find.outputs.run_id == '' && needs.binaries.result == 'success' && !cancelled()
     uses: ./.github/workflows/image.yml
+    with:
+      version: ${{ github.ref_name }}
     permissions:
       contents: read
       packages: write
@@ -78,9 +103,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Tag
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/teachergradebookreports"
-          v="${GITHUB_REF_NAME#v}"
+          v="${TAG#v}"
           docker buildx imagetools create \
             -t "$image:$v" -t "$image:${v%.*}" -t "$image:${v%%.*}" \
             "$image:sha-${GITHUB_SHA::7}"
@@ -107,10 +134,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           ls -l dist
-          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
           else
-            gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes --verify-tag
+            gh release create "$TAG" dist/* --title "$TAG" --generate-notes --verify-tag
           fi

@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Set up your classes{% endblock %}
+{% block content %}
+<div id="wizard" class="wizard mx-auto" data-first-run="{{ '1' if first_run else '0' }}" data-storage="{{ storage }}" data-config="{{ config_json }}">
+  <noscript><div class="alert alert-warning">The guided setup needs JavaScript. You can still <a href="/classes/new">create a class</a> or <a href="/import">import a spreadsheet</a>.</div></noscript>
+</div>
+<p id="wiz-foot" class="text-center small text-muted mt-4 d-print-none">Nothing is saved until the last step, and your answers stay in this page only. Prefer a spreadsheet? <a href="/import">Use the starter spreadsheet</a>.</p>
+{% endblock %}
+{% block scripts %}<script src="/static/js/wizard.js"></script>{% endblock %}

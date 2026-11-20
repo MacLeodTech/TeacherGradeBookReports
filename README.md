@@ -6,6 +6,9 @@ A self-hosted gradebook for teachers that produces professional PDF progress rep
   to one Excel workbook that opens in Excel as a plain grid of marks per class, ready to keep marking in.
   Gradebook opens it again exactly as it was, plus any marks or assessments added in Excel. By default the server keeps **no student data at all**: it lives in memory only while the teacher
   is signed in.
+- **A guided setup** for new teachers: a few friendly steps (your class, your students, how marks count, any
+  assignments to start with), each skippable, kept in the browser until the last step. Run it again any time to
+  add a class. It ends with a prompt to save your workbook.
 - **A spreadsheet-like mark grid** per class: add assessment columns, type or paste marks straight from
   Excel, and mark work as missing (`M`), excused (`X`), late (`17L`) or still to mark (`?`). Every change
   saves immediately and can be undone.
@@ -57,8 +60,10 @@ alongside instead. Importing a workbook on the **Import** page opens it too.
 
 The workbook has the same layout as the starter spreadsheet, for the current term, and nothing is locked:
 a late assignment or a new quiz can be added in Excel between sessions. Opening the file brings those
-changes in (a cleared cell clears that mark), lists them, and points out anything to check, such as which
-category a new assessment was put in. Other terms are kept in the file but not shown as tabs.
+changes in (a cleared cell clears that mark) and lists them. Anything Gradebook had to guess, such as the
+category of a new column or what it's out of, is flagged: a banner offers to step through those assignments
+one at a time, showing the guess for you to confirm ("Looks good") or change ("Update"). Only "out of" is
+required, and you can skip and come back. Other terms are kept in the file but not shown as tabs.
 
 The server's database still holds accounts, settings, comment banks, logos and the audit log. These contain
 no student information. A database guard refuses any write of student data to the file in memory mode, and
@@ -200,11 +205,22 @@ COOKIE_SECURE=false DB_PATH=./dev.db ADMIN_USERNAME=admin ADMIN_PASSWORD=Passwor
 | `migrations/` | SQL schema |
 | `docs/ROADMAP.md` | Design notes and status |
 
-**CI and releases.** Every PR is tested on Linux, Windows and macOS, and the Docker image is built to check
-it. Every push to `main` also builds the four downloads and pushes the image (`latest` once the tests pass).
-To release, bump `version` in `Cargo.toml`, merge, and push a tag such as `v2.3.0`: the release reuses what CI
-built for that commit (it waits if CI is still running), so it takes a minute or two. If CI didn't build that
-commit, the release tests and builds it itself.
+**CI and releases.** Every PR is tested on Linux, and the Docker image is built to check it. Every push to
+`main` also builds the four downloads (testing each on Windows, macOS and Linux) and pushes the image. When all
+of that passes, the push is **released automatically**: the next `vX.Y.Z` is worked out from the commit messages
+in the push (the same rule as the other projects), tagged, and the downloads and image that were just built are
+published under it. The release takes a couple of minutes beyond CI and the app reports that version.
+
+| In a commit message (or the squash-merge text) | Bump |
+|---|---|
+| nothing | patch (`v2.3.0` → `v2.3.1`) |
+| `#minor` | minor (`v2.3.1` → `v2.4.0`) |
+| `#major` | major |
+| `[skip release]` | no tag, no release |
+
+Pushes that only change docs (`*.md`, `docs/`) don't run CI, so they never release. To force one, run the **CI**
+workflow by hand on `main` and pick a bump. There's no version to edit in `Cargo.toml`: releases set it from the
+tag at build time. Pushing a `v*.*.*` tag by hand still works (`release.yml`).
 
 Fonts: Source Sans 3, SIL Open Font License (`assets/fonts/OFL.txt`), used in the PDFs and, as a Latin subset in
 `static/vendor/fonts/`, on the site.

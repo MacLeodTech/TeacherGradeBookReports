@@ -35,6 +35,7 @@ pub const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/002_board.sql"),
     include_str!("../migrations/003_staging_kind.sql"),
     include_str!("../migrations/004_levels.sql"),
+    include_str!("../migrations/005_review.sql"),
 ];
 
 /// Tables that hold student data. In memory mode these only ever exist in a

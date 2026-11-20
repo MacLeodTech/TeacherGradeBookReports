@@ -257,6 +257,8 @@ on top without rework, because the data model already covers all three modes.
 | In-memory storage (default): per-teacher in-memory SQLite, write guard on the file, size cap, idle discard | `src/db.rs` (`Workspace`, `guard`) |
 | Local mode: single binary on a teacher's computer, loopback only, launch link, Quit | `src/local.rs` |
 | Board deployment: OIDC single sign-on, audit log, retention of archived terms | `src/oidc.rs`, `src/audit.rs`, `migrations/002_board.sql` |
+| Guided setup (class → students → marking → assignments), draft kept in the browser, created in one step | `src/routes/wizard.rs`, `static/js/wizard.js` |
+| Review flag for guessed assessment details (`needs_review`), popup that steps through them | `migrations/005_review.sql`, `static/js/grid.js` |
 | CI on Linux/Windows/macOS; release binaries on tags | `.github/workflows/` |
 
 ## 10. Deployment options

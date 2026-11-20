@@ -998,3 +998,153 @@ async fn starter_spreadsheet(storage: Storage) {
     }
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// An assessment whose category was guessed is flagged for review; the flag survives saving and opening the
+/// workbook, shows on the dashboard, and clears when the teacher confirms it.
+#[tokio::test]
+async fn guessed_assessments_are_flagged_for_review() {
+    use crate::engine::Kind;
+    use crate::starter::{AssessmentSpec as A, SheetSpec, StudentSpec as S, Template};
+    let (app, dir, _state) = app_with(Storage::Persistent, |_| {}).await;
+    let mut c = Client::new(app);
+    c.login("admin", "Password1234").await;
+    c.get("/setup").await.ok();
+    c.post(
+        "/settings",
+        &[
+            ("setup", "1"),
+            ("mode", "secondary"),
+            ("active_periods", "2"),
+            ("primary_color", "#003F5A"),
+            ("accent_color", "#B1D2E1"),
+            ("term_name", "Semester 1"),
+        ],
+    )
+    .await
+    .redirects_to("/");
+
+    let sheet = SheetSpec {
+        title: "Period 1".into(),
+        class: "Grade 11 Biology".into(),
+        period: Some(1),
+        categories: vec![("Knowledge".into(), 60.0), ("Application".into(), 40.0)],
+        // "Pop Quiz" is a new column with no category on the Setup tab, as if typed in Excel.
+        assessments: vec![A::new("Quiz 1", "Knowledge", 20.0, 1.0, Kind::Scored), A::new("Pop Quiz", "", 10.0, 1.0, Kind::Scored)],
+        students: vec![S { last: "Lee".into(), first: "Ana".into(), ..Default::default() }],
+        marks: vec![vec!["17".to_string(), "8".to_string()]],
+        ..Default::default()
+    };
+    let t = Template { missing_policy: crate::engine::MissingPolicy::Ignore, sheets: vec![sheet], example: None, saved: None };
+    let bytes = crate::starter::build(&t).unwrap();
+    let r = c.upload("/import", "file", "mine.xlsx", &bytes).await;
+    let url = r.location.clone().unwrap();
+    c.post(&url, &[]).await.redirects_to("/");
+
+    let flags = |g: &Value| -> Vec<(String, i64)> {
+        g["assessments"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|a| (a["name"].as_str().unwrap().to_string(), a["needs_review"].as_i64().unwrap()))
+            .collect()
+    };
+    let page = c.get("/classes/1").await.text();
+    let sid: i64 = between(&page, "data-subject=\"", "\"").parse().unwrap();
+    let g = c.get(&format!("/api/subjects/{sid}/grid")).await.json();
+    assert_eq!(flags(&g), [("Quiz 1".to_string(), 0), ("Pop Quiz".to_string(), 1)]);
+
+    let home = c.get("/").await.text();
+    assert!(
+        home.contains("1 assignment needs a few details") && home.contains("/classes/1?review=1"),
+        "{}",
+        between(&home, "<main", "</main>")
+    );
+
+    // The flag is part of the saved workbook.
+    let saved = c.get("/workbook.xlsx").await;
+    c.upload("/workbook", "file", "saved.xlsx", &saved.body).await.redirects_to("/");
+    let page = c.get("/classes/2").await.text();
+    let sid2: i64 = between(&page, "data-subject=\"", "\"").parse().unwrap();
+    let g = c.get(&format!("/api/subjects/{sid2}/grid")).await.json();
+    assert_eq!(flags(&g)[1], ("Pop Quiz".to_string(), 1), "opened workbook keeps the flag");
+
+    // Confirming it from the popup clears it, and keeps the marks as typed.
+    let aid = g["assessments"][1]["id"].as_i64().unwrap();
+    let body = json!({"name": "Pop Quiz", "unit": "", "out_of": 10, "weight": 1, "kind": "scored",
+        "category_id": g["categories"][1]["id"], "due_date": null, "include_in_report": true, "rescale": false});
+    let g = c.post_json(&format!("/api/assessments/{aid}"), body).await.json();
+    assert_eq!(flags(&g)[1].1, 0);
+    assert_eq!(g["cells"][g["students"][0]["id"].to_string().trim_matches('"')][aid.to_string()]["text"], "8");
+    assert!(!c.get("/").await.text().contains("a few details"));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// The guided setup creates classes, students and assignments in one go, flags what it had to guess,
+/// and rejects what doesn't fit (a taken period, a duplicate name).
+#[tokio::test]
+async fn guided_setup_creates_everything_in_one_step() {
+    let (app, dir, state) = app_with(Storage::Memory, |_| {}).await;
+    let mut c = Client::new(app);
+    c.login("admin", "Password1234").await;
+    c.get("/setup").await.ok();
+    c.post(
+        "/settings",
+        &[
+            ("setup", "1"),
+            ("mode", "secondary"),
+            ("active_periods", "2"),
+            ("prep_period", "2"),
+            ("primary_color", "#003F5A"),
+            ("accent_color", "#B1D2E1"),
+            ("term_name", "Semester 1"),
+        ],
+    )
+    .await
+    .redirects_to("/start");
+    let page = c.get("/start").await.text();
+    assert!(page.contains("id=\"wizard\"") && page.contains("ontario-secondary") && page.contains("data-first-run=\"1\""), "{page}");
+    assert!(c.get("/static/js/wizard.js").await.ok().text().contains("/api/start"));
+
+    let class = |name: &str, period: i64| {
+        json!({
+            "name": name, "course_code": "SBI3U", "period": period, "preset": "ontario-secondary",
+            "students": [{"first": "Ana", "last": "Lee"}, {"first": "Omar", "last": "Khan"}],
+            "assessments": [
+                {"name": "Quiz 1", "kind": "scored", "out_of": 20, "category": "Knowledge & Understanding"},
+                {"name": "Lab 1", "kind": "scored", "out_of": null, "category": ""},
+                {"name": "Journal", "kind": "completion", "out_of": null, "category": ""}
+            ]
+        })
+    };
+    // Period 2 is the prep period.
+    let r = c.post_json("/api/start", json!({"classes": [class("Grade 11 Biology", 2)]})).await;
+    assert_eq!(r.status, 400, "{}", r.text());
+    assert!(!c.get("/").await.text().contains("Grade 11 Biology"), "a refused setup creates nothing");
+
+    let r = c.post_json("/api/start", json!({"classes": [class("Grade 11 Biology", 1)]})).await.ok().json();
+    assert_eq!((r["classes"].as_i64(), r["students"].as_i64(), r["assessments"].as_i64()), (Some(1), Some(2), Some(3)));
+    assert_eq!(r["review"].as_i64(), Some(1), "Lab 1 has no category or out-of; the journal needs neither");
+
+    let page = c.get("/classes/1").await.text();
+    let sid: i64 = between(&page, "data-subject=\"", "\"").parse().unwrap();
+    let g = c.get(&format!("/api/subjects/{sid}/grid")).await.json();
+    let flags: Vec<(String, i64)> = g["assessments"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|a| (a["name"].as_str().unwrap().into(), a["needs_review"].as_i64().unwrap()))
+        .collect();
+    assert_eq!(flags, [("Quiz 1".to_string(), 0), ("Lab 1".to_string(), 2), ("Journal".to_string(), 0)]);
+    assert_eq!(g["students"].as_array().unwrap().len(), 2);
+    assert_eq!(g["categories"].as_array().unwrap().len(), 5);
+
+    // A second run adds to what's there; reusing a name is refused.
+    let r = c.post_json("/api/start", json!({"classes": [class("grade 11 biology", 1)]})).await;
+    assert_eq!(r.status, 400);
+    assert!(c.get("/").await.text().contains("1 assignment needs a few details"));
+    assert!(c.get("/start").await.ok().text().contains("data-first-run=\"0\""));
+    if state.config.storage == Storage::Memory {
+        assert_eq!(state.db.stored_student_rows().unwrap(), 0);
+    }
+    let _ = std::fs::remove_dir_all(dir);
+}
