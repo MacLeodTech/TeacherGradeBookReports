@@ -142,6 +142,7 @@ pub async fn page(State(state): State<AppState>, auth: Auth, Path(cid): Path<i64
                     color => avg.map(|a| settings.scale.color(a)), missing => results.iter().map(|r| r.missing).sum::<usize>(),
                     pending => results.iter().map(|r| r.pending).sum::<usize>(), last, changed,
                     needs => last.is_none() || changed > 0, comments, subjects => sds.len(),
+                    marked => results.iter().flat_map(|r| &r.categories).map(|c| c.counted).sum::<usize>(),
                 });
             }
             Ok(ctx! { class, rows, report_types => REPORT_TYPES.to_vec(), defaults => Options::default() })
@@ -168,9 +169,40 @@ pub async fn batch(State(state): State<AppState>, auth: Auth, Path(cid): Path<i6
         })
         .await?;
     let logo = logo(&state, auth.user.id).await?;
+    let one_pdf = f.get("format") == "pdf";
+    let date = chrono::Local::now().format("%Y-%m-%d");
 
-    // Render in parallel; each PDF is independent.
-    let (zip_bytes, runs) = tokio::task::spawn_blocking(move || -> AppResult<(Vec<u8>, Vec<(i64, Option<f64>)>)> {
+    // One PDF for printing: every student in order, each starting a new page.
+    let (bytes, runs, mime, name) = if one_pdf {
+        let runs: Vec<(i64, Option<f64>)> = built.iter().map(|b| (b.student_id, b.overall)).collect();
+        let jsons: Vec<String> = built.into_iter().map(|b| b.json).collect();
+        let pdf = tokio::task::spawn_blocking(move || report::render_many(&jsons, logo.as_deref()))
+            .await
+            .map_err(|e| AppError::Internal(e.into()))??;
+        (pdf, runs, "application/pdf", format!("{}_reports_{date}.pdf", crate::util::file_stem(&[&class.name])))
+    } else {
+        let (zip, runs) = zip_reports(built, logo).await?;
+        (zip, runs, "application/zip", format!("{}_reports_{date}.zip", crate::util::file_stem(&[&class.name])))
+    };
+
+    let kind = f.get("report_type");
+    let n = runs.len();
+    auth.db
+        .call(move |c| {
+            for (sid, overall) in runs {
+                report::record_run(c, cid, sid, if kind.is_empty() { "Progress Report" } else { &kind }, overall)?;
+            }
+            Ok(())
+        })
+        .await?;
+    crate::audit::log(&state, Some(auth.user.id), &auth.user.username, "", "report.batch", format!("class {cid}, {n} reports")).await;
+    Ok(([(header::CONTENT_TYPE, mime.to_string()), (header::CONTENT_DISPOSITION, content_disposition("attachment", &name))], bytes)
+        .into_response())
+}
+
+/// Each student's report as its own PDF, in one ZIP. Rendered in parallel.
+async fn zip_reports(built: Vec<Built>, logo: Option<Vec<u8>>) -> AppResult<(Vec<u8>, Vec<(i64, Option<f64>)>)> {
+    tokio::task::spawn_blocking(move || -> AppResult<(Vec<u8>, Vec<(i64, Option<f64>)>)> {
         let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(2).min(8);
         let chunk = built.len().div_ceil(threads).max(1);
         let pdfs: Vec<AppResult<(String, Vec<u8>)>> = std::thread::scope(|s| {
@@ -208,23 +240,5 @@ pub async fn batch(State(state): State<AppState>, auth: Auth, Path(cid): Path<i6
         Ok((buf.into_inner(), built.iter().map(|b| (b.student_id, b.overall)).collect()))
     })
     .await
-    .map_err(|e| AppError::Internal(e.into()))??;
-
-    let kind = f.get("report_type");
-    let n = runs.len();
-    auth.db
-        .call(move |c| {
-            for (sid, overall) in runs {
-                report::record_run(c, cid, sid, if kind.is_empty() { "Progress Report" } else { &kind }, overall)?;
-            }
-            Ok(())
-        })
-        .await?;
-    crate::audit::log(&state, Some(auth.user.id), &auth.user.username, "", "report.batch", format!("class {cid}, {n} reports")).await;
-    let name = format!("{}_reports_{}.zip", crate::util::file_stem(&[&class.name]), chrono::Local::now().format("%Y-%m-%d"));
-    Ok((
-        [(header::CONTENT_TYPE, "application/zip".to_string()), (header::CONTENT_DISPOSITION, content_disposition("attachment", &name))],
-        zip_bytes,
-    )
-        .into_response())
+    .map_err(|e| AppError::Internal(e.into()))?
 }

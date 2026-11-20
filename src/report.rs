@@ -522,8 +522,15 @@ pub fn sample_json(user: &User, s: &Settings, main: &str, second: &str) -> AppRe
 
 /// Render a report JSON model to PDF bytes. CPU-bound: call from a blocking thread.
 pub fn render_pdf(json: &str, logo: Option<&[u8]>) -> AppResult<Vec<u8>> {
+    render_many(&[json], logo)
+}
+
+/// Several students' reports as one PDF (for printing a class at once). Each
+/// starts on a new page and numbers its own pages.
+pub fn render_many<S: AsRef<str>>(jsons: &[S], logo: Option<&[u8]>) -> AppResult<Vec<u8>> {
+    let list = format!("[{}]", jsons.iter().map(|j| j.as_ref()).collect::<Vec<_>>().join(","));
     let mut inputs = Dict::new();
-    inputs.insert("data".into(), json.into_value());
+    inputs.insert("data".into(), list.into_value());
     if let Some(l) = logo {
         inputs.insert("logo".into(), Bytes::new(l.to_vec()).into_value());
     }
@@ -680,8 +687,17 @@ mod tests {
         let pdf = render_pdf(&json, None).expect("pdf renders");
         assert!(pdf.starts_with(b"%PDF"));
         assert!(pdf.len() > 2000);
+        // A class printed as one document.
+        // The middle student's report runs over several pages.
+        let mut long: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let subj = long["subjects"][0].clone();
+        long["subjects"] = serde_json::Value::Array(vec![subj; 6]);
+        let long = long.to_string();
+        let many = render_many(&[json.as_str(), long.as_str(), json.as_str()], None).expect("combined pdf renders");
+        assert!(many.len() > pdf.len());
         if let Ok(dir) = std::env::var("REPORT_SAMPLE_DIR") {
             std::fs::write(format!("{dir}/sample.pdf"), &pdf).unwrap();
+            std::fs::write(format!("{dir}/sample-many.pdf"), &many).unwrap();
         }
     }
 }

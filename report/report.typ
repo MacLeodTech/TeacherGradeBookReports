@@ -1,10 +1,14 @@
 // Student report template.
 //
 // All data arrives as JSON in sys.inputs.data (built by src/report.rs), so
-// names and comments are always treated as plain text, never as markup.
+// names and comments are always treated as plain text, never as markup. It's a
+// list of student reports: one, or a whole class printed as one document, each
+// student starting on a new page with their own page numbers.
 // The optional logo arrives as bytes in sys.inputs.logo.
 
-#let d = json(bytes(sys.inputs.data))
+#let all = json(bytes(sys.inputs.data))
+// The header, footer and colours are the same for every student.
+#let d = all.at(0)
 // Colours come ready-made from src/color.rs: banners in the main school
 // colour, trim stripes in the second, and tints of the main colour behind
 // text, so text never sits on a colour it can't be read on.
@@ -21,7 +25,7 @@
 #let pale = rgb(c.pale)
 #let hairline = rgb(c.line)
 
-#set document(title: d.student.name + " – " + d.title)
+#set document(title: if all.len() == 1 { d.student.name + " – " + d.title } else { d.title })
 #set text(font: "Source Sans 3", size: 9.5pt, fill: ink, lang: "en")
 #set par(leading: 0.55em)
 
@@ -46,8 +50,12 @@
     let ft = (body) => text(fill: on-primary, size: 7.5pt, body)
     place(bottom + left, dx: 0.5in, dy: -0.17in, ft("Generated " + d.date))
     place(bottom + center, dy: -0.17in, ft(d.footer))
-    let total = counter(page).final().first()
-    place(bottom + right, dx: -0.5in, dy: -0.17in, ft("Page " + str(here().page()) + " of " + str(total)))
+    // Page numbers count within each student's report.
+    let p = here().page()
+    let starts = query(<report-start>).map(m => m.location().page())
+    let first = starts.filter(s => s <= p).last(default: 1)
+    let next = starts.filter(s => s > p).first(default: query(<report-end>).first().location().page() + 1)
+    place(bottom + right, dx: -0.5in, dy: -0.17in, ft("Page " + str(p - first + 1) + " of " + str(next - first)))
   },
 )
 
@@ -70,6 +78,7 @@
 
 #let hdr(body) = text(fill: primary-ink, weight: "bold", size: 8pt, body)
 
+#let report(d) = [
 // ── Student identity ─────────────────────────────────────────────────────────
 
 #grid(columns: (1fr, auto), align: (left + bottom, right + bottom),
@@ -272,3 +281,11 @@
     [#line(length: 100%, stroke: 0.6pt + ink) #text(size: 8pt, fill: muted)[Parent / guardian signature]],
   )
 }
+]
+
+#for (i, r) in all.enumerate() {
+  if i > 0 { pagebreak() }
+  [#metadata(i) <report-start>]
+  report(r)
+}
+#metadata(none) <report-end>

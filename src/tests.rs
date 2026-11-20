@@ -355,6 +355,18 @@ async fn teacher_workflow(storage: Storage) {
     assert_eq!(zip.content_type, "application/zip");
     let archive = zip::ZipArchive::new(std::io::Cursor::new(zip.body.clone())).unwrap();
     assert_eq!(archive.len(), 3);
+    // The same students as one PDF for printing.
+    fields.push(("format", "pdf"));
+    let one = c.post("/classes/1/reports", &fields).await;
+    assert!(one.ok().body.starts_with(b"%PDF"));
+    assert_eq!(one.content_type, "application/pdf");
+
+    // Settings: a sample report in unsaved colours, the palette, logo colours.
+    let sample = c.get("/settings/sample-report.pdf?main=%230033A0&second=%23C8102E").await;
+    assert!(sample.ok().body.starts_with(b"%PDF"));
+    let pal = c.get("/settings/palette?main=%23FFFFFF&second=%23800000").await.json();
+    assert_eq!((pal["banner"].as_str(), pal["swapped"].as_bool()), (Some("#800000"), Some(true)));
+    assert_eq!(c.get("/settings/logo-colors").await.json(), serde_json::json!([]));
 
     // Other class pages.
     c.get("/classes/1/insights").await.ok();
