@@ -39,6 +39,24 @@ pub async fn palette(_auth: Auth, Query(q): Query<PaletteQ>) -> Json<crate::colo
     Json(crate::color::palette(&q.main, &q.second))
 }
 
+/// A made-up student's report in the colours being chosen (not yet saved).
+pub async fn sample_report(State(state): State<AppState>, auth: Auth, Query(q): Query<PaletteQ>) -> AppResult<Response> {
+    let uid = auth.user.id;
+    let settings = auth.db.call(move |c| model::settings(c, uid)).await?;
+    let json = crate::report::sample_json(&auth.user, &settings, &q.main, &q.second)?;
+    let logo = super::reports::logo(&state, uid).await?;
+    let pdf = super::reports::render_one(json, logo).await?;
+    Ok(super::reports::pdf_response(pdf, "Sample_report.pdf", false))
+}
+
+/// Colours picked out of the teacher's logo, to suggest as school colours.
+pub async fn logo_colors(auth: Auth) -> AppResult<Json<Vec<String>>> {
+    let uid = auth.user.id;
+    let Some((bytes, _)) = auth.db.call(move |c| model::logo(c, uid)).await? else { return Ok(Json(vec![])) };
+    let found = tokio::task::spawn_blocking(move || crate::color::from_logo(&bytes)).await.map_err(|e| AppError::Internal(e.into()))?;
+    Ok(Json(found))
+}
+
 pub async fn settings_save(State(state): State<AppState>, auth: Auth, f: F) -> AppResult<Response> {
     let uid = auth.user.id;
     let setup = f.has("setup");

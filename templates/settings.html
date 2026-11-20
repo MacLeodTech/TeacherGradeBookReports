@@ -86,12 +86,16 @@
         <label class="form-label mt-3" for="accent_color">Second colour <span class="text-muted small">(trim)</span></label>
         <input class="form-control form-control-color w-100" type="color" id="accent_color" name="accent_color" value="{{ settings.accent_color }}">
         <div class="swatches mt-2" data-for="accent_color">{% for c, n in swatches %}<button type="button" class="swatch" style="--c: {{ c }}" data-color="{{ c }}" title="{{ n }}" aria-label="Second colour: {{ n }}"></button>{% endfor %}</div>
-        <button type="button" class="btn btn-outline-secondary btn-sm mt-3" id="swap_colors"><i class="bi bi-arrow-left-right"></i> Swap the two colours</button>
+        <div class="d-flex flex-wrap gap-2 mt-3">
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="swap_colors"><i class="bi bi-arrow-left-right"></i> Swap the two colours</button>
+          {% if settings.has_logo %}<button type="button" class="btn btn-outline-secondary btn-sm" id="use_logo_colors" hidden><i class="bi bi-eyedropper"></i> Use my logo's colours</button>{% endif %}
+        </div>
+        {% if not settings.has_logo and not setup %}<div class="form-text">Upload your school logo below and we'll suggest colours from it.</div>{% endif %}
       </div>
       <div class="col-md-7">
         <div class="form-label">Preview</div>
         <div class="report-mock" id="report_mock" aria-hidden="true">
-          <div class="rm-banner"><strong>{{ user.school or "Your School" }}</strong><span>{{ settings.report_title }}</span></div>
+          <div class="rm-banner">{% if settings.has_logo %}<img class="rm-logo" src="/settings/logo.img" alt="">{% endif %}<strong>{{ user.school or "Your School" }}</strong><span>{{ settings.report_title }}</span></div>
           <div class="rm-trim"></div>
           <div class="rm-body">
             <div class="rm-name">Student Name</div>
@@ -108,6 +112,8 @@
           <div class="rm-trim"></div>
           <div class="rm-banner rm-footer"><span>Page 1 of 1</span></div>
         </div>
+        <a class="btn btn-outline-primary btn-sm mt-2" id="sample_report" href="/settings/sample-report.pdf" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf"></i> Open a sample report</a>
+        <span class="form-text ms-1">A made-up student, in the colours above.</span>
         <div class="form-text" id="swap_note" hidden>Your main colour is too light for banners, so reports use the second colour for them instead.</div>
       </div>
     </div>

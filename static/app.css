@@ -395,8 +395,8 @@ tr.st-row-excused td { color: var(--gb-muted); }
 
 /* Settings: school colours. The preview is a paper mock of the PDF, so it
    stays white in dark mode; its colours come from /settings/palette. */
-.swatches { display: flex; flex-wrap: wrap; gap: .3rem; }
-.swatch { width: 1.6rem; height: 1.6rem; border-radius: 50%; background: var(--c); border: 1px solid var(--gb-border-strong); padding: 0; }
+.swatches { display: flex; flex-wrap: wrap; gap: .25rem; }
+.swatch { width: 1.4rem; height: 1.4rem; border-radius: 50%; background: var(--c); border: 1px solid var(--gb-border-strong); padding: 0; }
 .swatch[aria-pressed="true"] { outline: 2px solid var(--gb-primary-text); outline-offset: 2px; }
 .swatch:focus-visible { outline: 2px solid var(--gb-primary-text); outline-offset: 2px; }
 .report-mock {
@@ -423,3 +423,7 @@ tr.st-row-excused td { color: var(--gb-muted); }
 .rm-pale td { background: var(--rm-pale); }
 .rm-muted { color: var(--rm-muted); }
 .rm-grade { color: #1A7340; font-weight: 700; }
+.swatch-group { display: contents; }
+.swatch-group > .swatch:last-child { margin-right: .6rem; }
+.rm-banner { position: relative; }
+.rm-logo { position: absolute; left: .6rem; top: 50%; transform: translateY(-50%); height: 70%; max-width: 25%; object-fit: contain; }

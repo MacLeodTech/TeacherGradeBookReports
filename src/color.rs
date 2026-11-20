@@ -132,6 +132,46 @@ pub fn palette(main: &str, second: &str) -> Palette {
     }
 }
 
+/// The main colours in a logo, most prominent first (at most four), for
+/// suggesting school colours. Near-white and transparent pixels are the
+/// background, so they're skipped; colourful pixels count for more than greys,
+/// which are usually outlines and lettering.
+pub fn from_logo(bytes: &[u8]) -> Vec<String> {
+    let Ok(img) = image::load_from_memory(bytes) else { return vec![] };
+    let img = img.thumbnail(96, 96).to_rgba8();
+    // 4 bits a channel: 4096 buckets, each with a weight and a colour sum.
+    let mut buckets = vec![(0.0f64, [0.0f64; 3]); 4096];
+    for p in img.pixels() {
+        let [r, g, b, a] = p.0;
+        if a < 160 || (r > 232 && g > 232 && b > 232) {
+            continue;
+        }
+        let c = [r as f64 / 255.0, g as f64 / 255.0, b as f64 / 255.0];
+        let (hi, lo) = (c.iter().cloned().fold(0.0, f64::max), c.iter().cloned().fold(1.0, f64::min));
+        let w = 0.25 + (hi - lo);
+        let e = &mut buckets[((r as usize >> 4) << 8) | ((g as usize >> 4) << 4) | (b as usize >> 4)];
+        e.0 += w;
+        for i in 0..3 {
+            e.1[i] += c[i] * w;
+        }
+    }
+    let mut ranked: Vec<(f64, Rgb)> =
+        buckets.into_iter().filter(|b| b.0 > 0.0).map(|(w, s)| (w, [s[0] / w, s[1] / w, s[2] / w])).collect();
+    ranked.sort_by(|a, b| b.0.total_cmp(&a.0));
+    let total: f64 = ranked.iter().map(|r| r.0).sum();
+    let mut picked: Vec<Rgb> = vec![];
+    for (w, c) in ranked {
+        if picked.len() == 4 || w < total * 0.02 {
+            break;
+        }
+        // Shades of a colour already picked (anti-aliased edges) don't count.
+        if picked.iter().all(|p| (0..3).map(|i| (p[i] - c[i]).powi(2)).sum::<f64>().sqrt() > 0.22) {
+            picked.push(c);
+        }
+    }
+    picked.into_iter().map(hex).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -179,6 +219,27 @@ mod tests {
         assert!(!g.swapped);
         assert_eq!(g.on_banner, "#000000");
         assert_ne!(g.heading, "#FFD400");
+    }
+
+    #[test]
+    fn logo_colours_skip_the_background_and_rank_by_area() {
+        // White background, a big navy block, a smaller red stripe, grey text.
+        let mut img = image::RgbaImage::from_pixel(100, 100, image::Rgba([255, 255, 255, 255]));
+        for (x, y, p) in img.enumerate_pixels_mut() {
+            if y < 50 {
+                *p = image::Rgba([0, 40, 85, 255]);
+            } else if y < 65 {
+                *p = image::Rgba([200, 16, 46, 255]);
+            } else if y < 70 && x < 40 {
+                *p = image::Rgba([90, 90, 90, 255]);
+            }
+        }
+        let mut png = vec![];
+        img.write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png).unwrap();
+        let found = from_logo(&png);
+        assert_eq!(&found[..2], ["#002855", "#C8102E"]);
+        assert!(!found.iter().any(|c| c == "#FFFFFF"));
+        assert!(from_logo(b"not an image").is_empty());
     }
 
     #[test]

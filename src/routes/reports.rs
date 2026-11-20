@@ -65,15 +65,15 @@ fn build(c: &Connection, user: &crate::auth::User, cid: i64, sid: i64, opts: &Op
     Ok(Built { json, filename, overall, student_id: sid })
 }
 
-async fn logo(state: &AppState, uid: i64) -> AppResult<Option<Vec<u8>>> {
+pub(super) async fn logo(state: &AppState, uid: i64) -> AppResult<Option<Vec<u8>>> {
     state.db.call(move |c| Ok(model::logo(c, uid)?.map(|l| l.0))).await
 }
 
-async fn render_one(json: String, logo: Option<Vec<u8>>) -> AppResult<Vec<u8>> {
+pub(super) async fn render_one(json: String, logo: Option<Vec<u8>>) -> AppResult<Vec<u8>> {
     tokio::task::spawn_blocking(move || report::render_pdf(&json, logo.as_deref())).await.map_err(|e| AppError::Internal(e.into()))?
 }
 
-fn pdf_response(bytes: Vec<u8>, filename: &str, attachment: bool) -> Response {
+pub(super) fn pdf_response(bytes: Vec<u8>, filename: &str, attachment: bool) -> Response {
     (
         [
             (header::CONTENT_TYPE, "application/pdf".to_string()),

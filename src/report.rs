@@ -419,6 +419,107 @@ pub fn build_json(c: &Connection, input: &ReportInput) -> AppResult<String> {
     serde_json::to_string(&model).map_err(|e| AppError::Internal(e.into()))
 }
 
+/// A made-up student's report with the teacher's own header, grade scale and
+/// levels, in the colours given (not yet saved), for trying out the look.
+pub fn sample_json(user: &User, s: &Settings, main: &str, second: &str) -> AppResult<String> {
+    use crate::engine::{CategoryIn, MarkEntry, MissingPolicy, Setup};
+    use crate::model::{Assessment, Subject};
+    use std::collections::HashMap;
+
+    let student = Student {
+        id: 1,
+        first_name: "Alex".into(),
+        last_name: "Sample".into(),
+        preferred_name: String::new(),
+        student_number: String::new(),
+        pronouns: "they".into(),
+    };
+    let mk = |id: i64, cat: i64, name: &str, unit: &str, out_of: f64, kind: &str| Assessment {
+        id,
+        subject_id: 1,
+        category_id: Some(cat),
+        name: name.into(),
+        unit: unit.into(),
+        out_of,
+        weight: 1.0,
+        kind: kind.into(),
+        due_date: None,
+        include_in_report: true,
+    };
+    let assessments = vec![
+        mk(1, 1, "Cells quiz", "Unit 1: Cells", 20.0, "scored"),
+        mk(2, 2, "Microscope lab", "Unit 1: Cells", 25.0, "scored"),
+        mk(3, 1, "Ecosystems test", "Unit 2: Ecosystems", 50.0, "scored"),
+        mk(4, 2, "Food web poster", "Unit 2: Ecosystems", 30.0, "scored"),
+        mk(5, 3, "Participation", "Unit 2: Ecosystems", 4.0, "level"),
+        mk(6, 1, "Lab journal 1", "Journals", 1.0, "completion"),
+        mk(7, 1, "Lab journal 2", "Journals", 1.0, "completion"),
+    ];
+    let categories = vec![
+        CategoryIn { id: 1, name: "Knowledge".into(), weight: 50.0 },
+        CategoryIn { id: 2, name: "Application".into(), weight: 35.0 },
+        CategoryIn { id: 3, name: "Participation".into(), weight: 15.0 },
+    ];
+    let marks = HashMap::from([(
+        1,
+        HashMap::from([
+            (1, MarkEntry::marked(17.0)),
+            (2, MarkEntry::marked(19.5)),
+            (3, MarkEntry::marked(41.0)),
+            (4, MarkEntry::status(Status::Missing)),
+            (5, MarkEntry::marked(3.0)),
+            (6, MarkEntry::marked(1.0)),
+        ]),
+    )]);
+    let setup = Setup {
+        categories: categories.clone(),
+        assessments: assessments.iter().map(Assessment::engine).collect(),
+        policy: MissingPolicy::Ignore,
+        levels: s.levels.clone(),
+    };
+    let sd = SubjectData {
+        subject: Subject { id: 1, class_id: 1, name: "Science".into(), report_style: "percent".into() },
+        categories,
+        assessments,
+        marks,
+        overrides: HashMap::new(),
+        setup,
+    };
+    let o = Options::default();
+    let comment = (
+        "Alex has made a strong start this term and asks thoughtful questions in class.".to_string(),
+        "Hand in the food web poster, and keep the lab journal up to date.".to_string(),
+    );
+    let subjects = vec![subject_model(&sd, &student, &s.scale, &o, comment)];
+    let school = if user.school.is_empty() { "Your School".to_string() } else { user.school.clone() };
+    let footer = if s.board_name.is_empty() { school.clone() } else { format!("{school} · {}", s.board_name) };
+    let mut meta_lines = vec![format!("Report date: {}", today_long()), "Grade 7 Science".into()];
+    if !user.full_name.is_empty() {
+        meta_lines.push(format!("Teacher: {}", user.full_name));
+    }
+    let model = Model {
+        subtitle: format!("{}  ·  Sample", s.report_title),
+        footer,
+        school,
+        title: s.report_title.clone(),
+        date: today_long(),
+        colors: crate::color::palette(main, second),
+        has_logo: s.has_logo,
+        student: StudentM { name: student.full_name() },
+        meta_lines,
+        subjects,
+        skills: ["Responsibility", "Organization", "Collaboration", "Initiative"]
+            .iter()
+            .zip(["G", "S", "E", "G"])
+            .map(|(k, r)| SkillM { name: (*k).into(), rating: r.into() })
+            .collect(),
+        legend: s.scale.legend().into_iter().map(|(label, range, color)| LegendM { label, range, color }).collect(),
+        contact: "This is a sample report with made-up marks, to show how your reports will look.".into(),
+        options: o,
+    };
+    serde_json::to_string(&model).map_err(|e| AppError::Internal(e.into()))
+}
+
 /// Render a report JSON model to PDF bytes. CPU-bound: call from a blocking thread.
 pub fn render_pdf(json: &str, logo: Option<&[u8]>) -> AppResult<Vec<u8>> {
     let mut inputs = Dict::new();

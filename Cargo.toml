@@ -26,6 +26,7 @@ deunicode = "1.6.2"
 dirs = "7.0.0"
 hex = "0.4.3"
 hmac = "0.13.0"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 minijinja = { version = "3.1.0", features = ["urlencode", "serde"] }
 open = "5.4.5"
 openidconnect = { version = "4.1.0", default-features = false, features = ["reqwest", "rustls-tls", "timing-resistant-secret-traits"] }
