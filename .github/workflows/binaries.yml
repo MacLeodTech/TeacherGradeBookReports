@@ -7,6 +7,11 @@ name: Binaries
 # build the tagged commit.
 on:
   workflow_call:
+    inputs:
+      version:
+        description: "The release tag being built (e.g. v2.3.0), so the app reports it; blank = Cargo.toml's"
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -14,6 +19,7 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
+  GRADEBOOK_VERSION: ${{ inputs.version }}
 
 jobs:
   build:

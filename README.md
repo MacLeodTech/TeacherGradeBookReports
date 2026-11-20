@@ -206,11 +206,21 @@ COOKIE_SECURE=false DB_PATH=./dev.db ADMIN_USERNAME=admin ADMIN_PASSWORD=Passwor
 | `docs/ROADMAP.md` | Design notes and status |
 
 **CI and releases.** Every PR is tested on Linux, and the Docker image is built to check it. Every push to
-`main` also builds the four downloads (testing each on Windows, macOS and Linux) and pushes the image
-(`latest` once the tests pass).
-To release, bump `version` in `Cargo.toml`, merge, and push a tag such as `v2.3.0`: the release reuses what CI
-built for that commit (it waits if CI is still running), so it takes a minute or two. If CI didn't build that
-commit (for example, a docs-only commit, which CI skips), the release tests and builds it itself.
+`main` also builds the four downloads (testing each on Windows, macOS and Linux) and pushes the image. When all
+of that passes, the push is **released automatically**: the next `vX.Y.Z` is worked out from the commit messages
+in the push (the same rule as the other projects), tagged, and the downloads and image that were just built are
+published under it. The release takes a couple of minutes beyond CI and the app reports that version.
+
+| In a commit message (or the squash-merge text) | Bump |
+|---|---|
+| nothing | patch (`v2.3.0` → `v2.3.1`) |
+| `#minor` | minor (`v2.3.1` → `v2.4.0`) |
+| `#major` | major |
+| `[skip release]` | no tag, no release |
+
+Pushes that only change docs (`*.md`, `docs/`) don't run CI, so they never release. To force one, run the **CI**
+workflow by hand on `main` and pick a bump. There's no version to edit in `Cargo.toml`: releases set it from the
+tag at build time. Pushing a `v*.*.*` tag by hand still works (`release.yml`).
 
 Fonts: Source Sans 3, SIL Open Font License (`assets/fonts/OFL.txt`), used in the PDFs and, as a Latin subset in
 `static/vendor/fonts/`, on the site.

@@ -21,6 +21,9 @@ COPY report/ report/
 COPY assets/ assets/
 COPY templates/ templates/
 COPY static/ static/
+# The release version (e.g. v2.3.0), so the app reports it; empty = the version in Cargo.toml.
+ARG GRADEBOOK_VERSION=
+ENV GRADEBOOK_VERSION=$GRADEBOOK_VERSION
 RUN cargo build --release --locked
 
 # ── Runtime ──────────────────────────────────────────────────────────────────

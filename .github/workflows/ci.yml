@@ -2,8 +2,17 @@ name: CI
 
 # Every PR: format, lint and test on Linux, and check the image builds.
 # Every push to main: also build the four downloads, testing each on its own
-# OS, and push the image, so tagging a version only has to publish what's
-# already built and tested here.
+# OS, and push the image. Once all of that passes, the push is released
+# automatically (see "Releases" below), by publishing what was just built.
+#
+# Releases: the next vX.Y.Z comes from the commit messages in the push, the same
+# rule as the other projects:
+#   default                  -> patch
+#   "#minor" in a message    -> minor
+#   "#major" in a message    -> major
+#   "[skip release]"         -> no tag, no release
+# (Pushes that only touch docs don't run CI at all, so they never release.)
+# Run this workflow by hand on main to force a release, optionally picking the bump.
 on:
   pull_request:
     branches: [main]
@@ -12,6 +21,12 @@ on:
     branches: [main]
     paths-ignore: ["**.md", "docs/**", "LICENSE"]
   workflow_dispatch:
+    inputs:
+      bump:
+        description: "Force this bump when run on main (blank = from the commit messages)"
+        type: choice
+        options: ["", patch, minor, major]
+        default: ""
 
 # A new push to a PR cancels its older run; every commit on main gets its own
 # full run (a release reuses it).
@@ -23,17 +38,74 @@ permissions:
   contents: read
 
 jobs:
+  # What the next release would be called, so the builds can report it. Nothing
+  # is tagged here; that happens at the end, once everything has passed.
+  next:
+    name: Next version
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.v.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: v
+        env:
+          BEFORE: ${{ github.event.before }}
+          FORCE: ${{ inputs.bump }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = pull_request ] || [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo "tag=" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          # The highest tag by version, not the nearest on this branch.
+          last=$(git tag -l 'v[0-9]*' --sort=-v:refname | head -n1)
+          if git tag --points-at HEAD | grep -q '^v'; then
+            echo "HEAD is already released"; echo "tag=" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ] && git cat-file -e "$BEFORE" 2>/dev/null; then
+            msgs=$(git log --format=%B "$BEFORE..HEAD")
+          else
+            msgs=$(git log -1 --format=%B)
+          fi
+          if [ -z "$FORCE" ] && grep -qiF '[skip release]' <<<"$msgs"; then
+            echo "[skip release] found"; echo "tag=" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if [ -z "$last" ]; then
+            tag=v0.1.0
+          else
+            bump=patch
+            grep -qi '#minor' <<<"$msgs" && bump=minor
+            grep -qi '#major' <<<"$msgs" && bump=major
+            [ -n "$FORCE" ] && bump=$FORCE
+            IFS=. read -r maj min pat <<<"${last#v}"
+            case $bump in
+              major) maj=$((maj+1)); min=0; pat=0;;
+              minor) min=$((min+1)); pat=0;;
+              *)     pat=$((pat+1));;
+            esac
+            tag="v$maj.$min.$pat"
+            echo "last=$last bump=$bump"
+          fi
+          echo "Next release: $tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
   test:
     uses: ./.github/workflows/test.yml
 
   # These run alongside the Linux tests. Nothing they make is published until
   # every test passes.
   binaries:
+    needs: next
     if: github.event_name != 'pull_request'
     uses: ./.github/workflows/binaries.yml
+    with:
+      version: ${{ needs.next.outputs.tag }}
 
   image:
+    needs: next
     uses: ./.github/workflows/image.yml
+    with:
+      version: ${{ needs.next.outputs.tag }}
     permissions:
       contents: read
       packages: write
@@ -56,3 +128,34 @@ jobs:
         run: |
           image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/teachergradebookreports"
           docker buildx imagetools create -t "$image:main" -t "$image:latest" "$image:sha-${GITHUB_SHA::7}"
+
+  # ── Releases ───────────────────────────────────────────────────────────────
+  # Everything passed on main: tag the commit, then publish the downloads and
+  # image built above under that version (release.yml).
+  tag:
+    name: Tag the release
+    needs: [next, test, binaries, image, latest]
+    if: github.event_name != 'pull_request' && needs.next.outputs.tag != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Push the tag
+        env:
+          TAG: ${{ needs.next.outputs.tag }}
+        run: |
+          git tag "$TAG"
+          git push origin "$TAG"
+
+  release:
+    name: Release
+    needs: [next, tag]
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.next.outputs.tag }}
+      run_id: ${{ github.run_id }}
+    permissions:
+      contents: write
+      packages: write
+      actions: read
